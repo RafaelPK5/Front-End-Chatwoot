@@ -429,13 +429,22 @@ export default function AllocationManagement() {
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Alocações</h1>
-        <p className="text-gray-600 mt-2">Aloque agentes para times e inboxes</p>
+        <div className="flex items-center space-x-4 mb-4">
+          <img 
+            src="/logo-communica.png" 
+            alt="Communica Logo" 
+            className="h-12 w-auto"
+          />
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Gerenciamento de Alocações</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">Aloque agentes para times e inboxes</p>
+          </div>
+        </div>
       </div>
 
       {/* Alertas de erro */}
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+        <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -443,8 +452,8 @@ export default function AllocationManagement() {
               </svg>
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Erro</h3>
-              <div className="mt-2 text-sm text-red-700">{error}</div>
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-400">Erro</h3>
+              <div className="mt-2 text-sm text-red-700 dark:text-red-400">{error}</div>
             </div>
           </div>
         </div>
@@ -452,60 +461,60 @@ export default function AllocationManagement() {
 
       {/* Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <svg className="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-8 w-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
               </svg>
             </div>
             <div className="ml-4">
-              <div className="text-2xl font-bold text-gray-900">{agents.length}</div>
-              <div className="text-sm text-gray-600">Total de Agentes</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{agents.length}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Total de Agentes</div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-8 w-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
             <div className="ml-4">
-              <div className="text-2xl font-bold text-gray-900">{teams.length}</div>
-              <div className="text-sm text-gray-600">Total de Times</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{teams.length}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Total de Times</div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <svg className="h-8 w-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-8 w-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
             </div>
             <div className="ml-4">
-              <div className="text-2xl font-bold text-gray-900">{inboxes.length}</div>
-              <div className="text-sm text-gray-600">Total de Inboxes</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{inboxes.length}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Total de Inboxes</div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <svg className="h-8 w-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-8 w-8 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div className="ml-4">
-              <div className="text-2xl font-bold text-gray-900">
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">
                 {teams.reduce((total, team) => total + (team.members_count || 0), 0)}
               </div>
-              <div className="text-sm text-gray-600">Alocações Ativas</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Alocações Ativas</div>
             </div>
           </div>
         </div>
@@ -513,14 +522,14 @@ export default function AllocationManagement() {
 
       {/* Tabs */}
       <div className="mb-6">
-        <div className="border-b border-gray-200">
+        <div className="border-b border-gray-200 dark:border-gray-700">
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveTab('teams')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'teams'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
               <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -532,8 +541,8 @@ export default function AllocationManagement() {
               onClick={() => setActiveTab('inboxes')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'inboxes'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
               <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -547,52 +556,52 @@ export default function AllocationManagement() {
 
       {/* Conteúdo das Tabs */}
       {activeTab === 'teams' && (
-        <div className="bg-white shadow rounded-lg">
-                     <div className="px-6 py-4 border-b border-gray-200">
-             <h2 className="text-lg font-medium text-gray-900">Times</h2>
-             <p className="text-sm text-gray-600 mt-1">Clique em um time para gerenciar suas alocações</p>
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+                     <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+             <h2 className="text-lg font-medium text-gray-900 dark:text-white">Times</h2>
+             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Clique em um time para gerenciar suas alocações</p>
            </div>
           
           {teams.length === 0 ? (
             <div className="px-6 py-12 text-center">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum time encontrado</h3>
-              <p className="mt-1 text-sm text-gray-500">Crie times primeiro para gerenciar alocações.</p>
+              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Nenhum time encontrado</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Crie times primeiro para gerenciar alocações.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Nome do Time
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Descrição
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Membros
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Ações
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {teams.map((team) => (
-                    <tr key={team.id} className="hover:bg-gray-50">
+                    <tr key={team.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{team.name}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{team.name}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 max-w-xs truncate">
+                        <div className="text-sm text-gray-900 dark:text-white max-w-xs truncate">
                           {team.description || 'Sem descrição'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{team.members_count || 0}</div>
+                        <div className="text-sm text-gray-900 dark:text-white">{team.members_count || 0}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button

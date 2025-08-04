@@ -16,43 +16,51 @@ interface UserState {
 
 export const useUserStore = create<UserState>()(
   persist(
-    (set, get) => ({
-      user: null,
-      isLoggedIn: false,
-      isLoading: false,
-      error: null,
+    (set, get) => {
+      return {
+        user: null,
+        isLoggedIn: false,
+        isLoading: false,
+        error: null,
 
-      login: async (email: string, password: string) => {
-        set({ isLoading: true, error: null });
-        
-        try {
-          const user = await loginUser(email, password);
+        login: async (email: string, password: string) => {
+          set({ isLoading: true, error: null });
+          
+          try {
+            const user = await loginUser(email, password);
+            set({ 
+              user, 
+              isLoggedIn: true, 
+              isLoading: false,
+              error: null 
+            });
+          } catch (error) {
+            set({ 
+              isLoading: false, 
+              error: error instanceof Error ? error.message : 'Erro no login' 
+            });
+          }
+        },
+
+        logout: () => {
           set({ 
-            user, 
-            isLoggedIn: true, 
+            user: null, 
+            isLoggedIn: false, 
             isLoading: false,
             error: null 
           });
-        } catch (error) {
-          set({ 
-            isLoading: false, 
-            error: error instanceof Error ? error.message : 'Erro no login' 
-          });
-        }
-      },
+          
+          // Limpar localStorage manualmente para garantir
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('chatwoot-user-storage');
+          }
+        },
 
-      logout: () => {
-        set({ 
-          user: null, 
-          isLoggedIn: false, 
-          error: null 
-        });
-      },
-
-      clearError: () => {
-        set({ error: null });
-      },
-    }),
+        clearError: () => {
+          set({ error: null });
+        },
+      };
+    },
     {
       name: 'chatwoot-user-storage',
       partialize: (state) => ({ 

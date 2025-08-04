@@ -58,6 +58,11 @@ export default function InboxManagement() {
     platform_type: 'digital_platform',
   });
 
+  // Estados para filtros
+  const [nameFilter, setNameFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [platformFilter, setPlatformFilter] = useState('');
+
   useEffect(() => {
     if (user?.auth_token) {
       fetchInboxes();
@@ -433,6 +438,20 @@ export default function InboxManagement() {
   // Lista completa: apenas inboxes do Chatwoot com dados da Evolution
   const allInstances: InstanceItem[] = getClassifiedInstances();
 
+  // Função para filtrar instâncias
+  const filteredInstances = allInstances.filter(instance => {
+    const matchesName = nameFilter === '' || 
+      instance.name.toLowerCase().includes(nameFilter.toLowerCase());
+    
+    const matchesStatus = statusFilter === '' || 
+      instance.status === statusFilter;
+    
+    const matchesPlatform = platformFilter === '' || 
+      instance.platform_type === platformFilter;
+    
+    return matchesName && matchesStatus && matchesPlatform;
+  });
+
   console.log('📊 Lista final de instâncias:', {
     total: allInstances.length,
     chatwoot: inboxes.length,
@@ -567,8 +586,8 @@ export default function InboxManagement() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <h3 className="text-lg font-medium text-gray-900">Usuário não autenticado</h3>
-          <p className="text-gray-500">Faça login para acessar esta página</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Usuário não autenticado</h3>
+          <p className="text-gray-500 dark:text-gray-400">Faça login para acessar esta página</p>
         </div>
       </div>
     );
@@ -586,9 +605,16 @@ export default function InboxManagement() {
     <div className="space-y-6">
              {/* Header */}
        <div className="flex justify-between items-center">
-         <div>
-           <h1 className="text-2xl font-bold text-gray-900">Gerenciamento de Inboxes</h1>
-           <p className="text-gray-600">Gerencie os canais de comunicação da sua empresa</p>
+         <div className="flex items-center space-x-4">
+           <img 
+             src="/logo-communica.png" 
+             alt="Communica Logo" 
+             className="h-10 w-auto"
+           />
+           <div>
+             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gerenciamento de Inboxes</h1>
+             <p className="text-gray-600 dark:text-gray-400">Gerencie os canais de comunicação da sua empresa</p>
+           </div>
          </div>
                    <div className="flex space-x-3">
             <button
@@ -624,86 +650,142 @@ export default function InboxManagement() {
 
              {/* Error Message */}
        {error && (
-         <div className="bg-red-50 border border-red-200 rounded-md p-4">
-           <p className="text-red-700">{error}</p>
+         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+           <p className="text-red-700 dark:text-red-400">{error}</p>
          </div>
        )}
 
                {/* Statistics Panel */}
                  <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-           <div className="bg-white p-4 rounded-lg shadow">
-             <div className="text-2xl font-bold text-indigo-600">{stats.total}</div>
-             <div className="text-sm text-gray-600">Total</div>
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+             <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats.total}</div>
+             <div className="text-sm text-gray-600 dark:text-gray-400">Total</div>
            </div>
-           <div className="bg-white p-4 rounded-lg shadow">
-             <div className="text-2xl font-bold text-blue-600">{stats.digitalPlatform}</div>
-             <div className="text-sm text-gray-600">Plataforma Digital</div>
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.digitalPlatform}</div>
+             <div className="text-sm text-gray-600 dark:text-gray-400">Plataforma Digital</div>
            </div>
-           <div className="bg-white p-4 rounded-lg shadow">
-             <div className="text-2xl font-bold text-orange-600">{stats.maturation}</div>
-             <div className="text-sm text-gray-600">Maturação</div>
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.maturation}</div>
+             <div className="text-sm text-gray-600 dark:text-gray-400">Maturação</div>
            </div>
-           <div className="bg-white p-4 rounded-lg shadow">
-             <div className="text-2xl font-bold text-purple-600">{stats.evolution}</div>
-             <div className="text-sm text-gray-600">Evolution</div>
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.evolution}</div>
+             <div className="text-sm text-gray-600 dark:text-gray-400">Evolution</div>
            </div>
-           <div className="bg-white p-4 rounded-lg shadow">
-             <div className="text-2xl font-bold text-green-600">{stats.connected}</div>
-             <div className="text-sm text-gray-600">Conectadas</div>
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+             <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.connected}</div>
+             <div className="text-sm text-gray-600 dark:text-gray-400">Conectadas</div>
            </div>
-           <div className="bg-white p-4 rounded-lg shadow">
-             <div className="text-2xl font-bold text-red-600">{stats.disconnected}</div>
-             <div className="text-sm text-gray-600">Desconectadas</div>
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+             <div className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.disconnected}</div>
+             <div className="text-sm text-gray-600 dark:text-gray-400">Desconectadas</div>
            </div>
-           <div className="bg-white p-4 rounded-lg shadow">
-             <div className="text-2xl font-bold text-yellow-600">{stats.connecting}</div>
-             <div className="text-sm text-gray-600">Conectando</div>
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+             <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.connecting}</div>
+             <div className="text-sm text-gray-600 dark:text-gray-400">Conectando</div>
            </div>
          </div>
 
 
 
-      {/* Inboxes List */}
-      <div className="bg-white shadow rounded-lg">
+      {/* Filtros */}
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
         <div className="px-4 py-5 sm:p-6">
-                     <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-             Instâncias ({allInstances.length})
+          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
+            Filtros
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Filtrar por Nome
+              </label>
+              <input
+                type="text"
+                value={nameFilter}
+                onChange={(e) => setNameFilter(e.target.value)}
+                placeholder="Digite o nome da instância..."
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Filtrar por Status
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Todos os status</option>
+                <option value="open">Conectado</option>
+                <option value="close">Desconectado</option>
+                <option value="connecting">Conectando</option>
+                <option value="not_found">Sem Evolution</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Filtrar por Plataforma
+              </label>
+              <select
+                value={platformFilter}
+                onChange={(e) => setPlatformFilter(e.target.value)}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Todas as plataformas</option>
+                <option value="digital_platform">Plataforma Digital</option>
+                <option value="maturation">Maturação</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Inboxes List */}
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+                     <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
+             Instâncias ({filteredInstances.length} de {allInstances.length})
            </h3>
            
-           {allInstances.length === 0 ? (
+           {filteredInstances.length === 0 ? (
             <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
-                             <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhuma instância encontrada</h3>
-               <p className="mt-1 text-sm text-gray-500">Comece criando sua primeira instância.</p>
+                             <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Nenhuma instância encontrada</h3>
+               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Comece criando sua primeira instância.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                                 <thead className="bg-gray-50">
+                                 <thead className="bg-gray-50 dark:bg-gray-700">
                    <tr>
-                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                        Nome
                      </th>
-                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                        Tipo
                      </th>
-                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                        Plataforma
                      </th>
-                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                        Status
                      </th>
-                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                        Ações
                      </th>
                    </tr>
                  </thead>
-                 <tbody className="bg-white divide-y divide-gray-200">
-                                      {allInstances.map((instance) => (
-                     <tr key={instance.id} className="hover:bg-gray-50">
-                                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                      {filteredInstances.map((instance) => (
+                                            <tr key={instance.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                           {instance.name}
                           {instance.evolutionData && (
                             <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
@@ -716,10 +798,10 @@ export default function InboxManagement() {
                             </span>
                           )}
                         </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                          {getChannelTypeLabel(instance.channel_type)}
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                            instance.platform_type === 'digital_platform' 
                              ? 'bg-blue-100 text-blue-800' 
@@ -728,7 +810,7 @@ export default function InboxManagement() {
                            {getPlatformTypeLabel(instance.platform_type || 'digital_platform')}
                          </span>
                        </td>
-                                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {instance.evolutionData ? (
                             <div className="space-y-1">
                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -753,7 +835,7 @@ export default function InboxManagement() {
                             <span className="text-gray-400">Sem dados da Evolution</span>
                           )}
                         </td>
-                                                                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                           <div className="flex space-x-2">
                             {/* Botões de Editar/Deletar apenas para inboxes do Chatwoot */}
                             {!instance.isEvolutionInstance && (
@@ -819,43 +901,43 @@ export default function InboxManagement() {
              {/* Create Modal */}
        {showCreateModal && (
          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-             <h3 className="text-lg font-medium text-gray-900 mb-4">Criar Novo Inbox</h3>
+           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Criar Novo Inbox</h3>
              
              <div className="space-y-4">
                <div>
-                 <label className="block text-sm font-medium text-gray-700">Nome</label>
+                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome</label>
                  <input
                    type="text"
                    value={formData.name}
                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                   className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                    placeholder="Nome do inbox"
                  />
                </div>
                
                <div>
-                 <label className="block text-sm font-medium text-gray-700">Tipo de Canal</label>
+                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Canal</label>
                  <select
                    value={formData.channel_type}
                    onChange={(e) => setFormData({ ...formData, channel_type: e.target.value })}
-                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
+                   className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                  >
-                   <option value="evolution_api" className="text-gray-900 bg-white hover:bg-gray-100">Evolution API</option>
+                   <option value="evolution_api" className="text-gray-900 dark:text-white bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">Evolution API</option>
                  </select>
                </div>
                
                <div>
-                 <label className="block text-sm font-medium text-gray-700">Tipo de Plataforma</label>
+                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Plataforma</label>
                  <select
                    value={formData.platform_type}
                    onChange={(e) => setFormData({ ...formData, platform_type: e.target.value as 'digital_platform' | 'maturation' })}
-                   className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
+                   className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                  >
-                   <option value="digital_platform" className="text-gray-900 bg-white hover:bg-gray-100">Plataforma Digital</option>
-                   <option value="maturation" className="text-gray-900 bg-white hover:bg-gray-100">Maturação</option>
+                   <option value="digital_platform" className="text-gray-900 dark:text-white bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">Plataforma Digital</option>
+                   <option value="maturation" className="text-gray-900 dark:text-white bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">Maturação</option>
                  </select>
-                 <p className="mt-1 text-xs text-gray-500">
+                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                    <strong>Plataforma Digital:</strong> Cria inbox no Chatwoot<br/>
                    <strong>Maturação:</strong> Só cria instância na Evolution API
                  </p>
@@ -865,7 +947,7 @@ export default function InboxManagement() {
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
               >
                 Cancelar
               </button>
@@ -883,29 +965,29 @@ export default function InboxManagement() {
       {/* Edit Modal */}
       {showEditModal && editingInbox && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Editar Inbox</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Editar Inbox</h3>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Nome</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="Nome do inbox"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700">Tipo de Canal</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Canal</label>
                 <select
                   value={formData.channel_type}
                   onChange={(e) => setFormData({ ...formData, channel_type: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-gray-900"
+                  className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
-                  <option value="evolution_api" className="text-gray-900 bg-white hover:bg-gray-100">Evolution API</option>
+                  <option value="evolution_api" className="text-gray-900 dark:text-white bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600">Evolution API</option>
                 </select>
               </div>
             </div>
@@ -913,7 +995,7 @@ export default function InboxManagement() {
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
               >
                 Cancelar
               </button>
@@ -931,17 +1013,17 @@ export default function InboxManagement() {
                                                                {/* QR Code Modal */}
           {showQRModal && qrCodeData && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ zIndex: 9999 }}>
-             <div className="bg-white rounded-lg p-6 w-full max-w-md">
+             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
                <div className="flex items-center justify-between mb-4">
-                 <h3 className="text-lg font-medium text-gray-900">QR Code para WhatsApp</h3>
+                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">QR Code para WhatsApp</h3>
                  <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
                    ✅ Instância Criada
                  </div>
                </div>
                
                              <div className="text-center">
-                 <div className="bg-gray-100 p-4 rounded-lg mb-4">
-                   <p className="text-sm text-gray-600 mb-2">QR Code carregando...</p>
+                 <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4">
+                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">QR Code carregando...</p>
                    <img 
                      src={qrCodeData}
                      alt="QR Code WhatsApp" 
@@ -952,12 +1034,12 @@ export default function InboxManagement() {
                    />
                  </div>
                 
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Escaneie este QR Code com seu WhatsApp para conectar a inbox
                 </p>
                 
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-4">
-                  <p className="text-xs text-blue-800">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3 mb-4">
+                  <p className="text-xs text-blue-800 dark:text-blue-400">
                     <strong>Dica:</strong> Abra o WhatsApp → Configurações → Aparelhos conectados → Conectar um dispositivo
                   </p>
                 </div>
@@ -978,17 +1060,17 @@ export default function InboxManagement() {
         {/* Connect Modal */}
         {showConnectModal && qrCodeData && connectingInbox && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ zIndex: 9999 }}>
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Reconectar WhatsApp</h3>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Reconectar WhatsApp</h3>
                 <div className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
                   🔄 Reconectando
                 </div>
               </div>
               
               <div className="text-center">
-                <div className="bg-gray-100 p-4 rounded-lg mb-4">
-                  <p className="text-sm text-gray-600 mb-2">QR Code para reconexão...</p>
+                <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">QR Code para reconexão...</p>
                   <img 
                     src={qrCodeData}
                     alt="QR Code WhatsApp" 
@@ -999,12 +1081,12 @@ export default function InboxManagement() {
                   />
                 </div>
                 
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Escaneie este QR Code para reconectar a instância <strong>{connectingInbox.name}</strong>
                 </p>
                 
-                <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-4">
-                  <p className="text-xs text-orange-800">
+                <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md p-3 mb-4">
+                  <p className="text-xs text-orange-800 dark:text-orange-400">
                     <strong>Importante:</strong> Esta instância estava desconectada. Após escanear, ela voltará a funcionar normalmente.
                   </p>
                 </div>

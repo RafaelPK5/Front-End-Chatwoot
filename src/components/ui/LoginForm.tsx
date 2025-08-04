@@ -2,13 +2,10 @@
 
 import { useState } from 'react';
 import { useUserStore } from '../../store/userStore';
-import { testAPI } from '../../lib/api/chatwootAPI';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [apiStatus, setApiStatus] = useState<string>('');
-  const [apiDetails, setApiDetails] = useState<string>('');
   const { login, isLoading, error, clearError } = useUserStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,57 +15,23 @@ export default function LoginForm() {
     await login(email, password);
   };
 
-  const handleTestAPI = async () => {
-    setApiStatus('Testando...');
-    setApiDetails('');
-    try {
-      const result = await testAPI();
-      if (result.success) {
-        setApiStatus('✅ API conectada com sucesso!');
-        setApiDetails(`URL funcionando: ${result.url}`);
-      } else {
-        setApiStatus('❌ Falha na conexão com a API');
-        setApiDetails('Todas as URLs testadas falharam. Verifique se o servidor está rodando.');
-      }
-    } catch (error) {
-      setApiStatus('❌ Erro ao testar API');
-      setApiDetails('Erro inesperado durante o teste.');
-    }
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-indigo-100">
-            <svg className="h-8 w-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+          <div className="mx-auto flex items-center justify-center">
+            <img 
+              src="/logo-communica-reduzida_cont-1.png" 
+              alt="Communica Logo" 
+              className="w-auto"
+            />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Chatwoot Dashboard
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          {/* <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
+            Communica
+          </h2> */}
+          <p className="mt-2 text-center text-sm text-gray-300">
             Faça login para acessar o sistema
           </p>
-        </div>
-        
-        {/* Botão de teste da API */}
-        <div className="text-center">
-          <button
-            onClick={handleTestAPI}
-            className="text-sm text-indigo-600 hover:text-indigo-500 underline"
-          >
-            Testar Conexão com API
-          </button>
-          {apiStatus && (
-            <div className="mt-2">
-              <p className="text-xs font-medium">{apiStatus}</p>
-              {apiDetails && (
-                <p className="text-xs text-gray-500 mt-1">{apiDetails}</p>
-              )}
-            </div>
-          )}
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -83,7 +46,7 @@ export default function LoginForm() {
                 type="email"
                 autoComplete="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-700 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -99,7 +62,7 @@ export default function LoginForm() {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white bg-white dark:bg-gray-700 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                 placeholder="Senha"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -108,7 +71,7 @@ export default function LoginForm() {
           </div>
 
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
+            <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
               <div className="flex">
                 <div className="flex-shrink-0">
                   <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -116,7 +79,7 @@ export default function LoginForm() {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-red-700">{error}</p>
+                  <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
                 </div>
               </div>
             </div>

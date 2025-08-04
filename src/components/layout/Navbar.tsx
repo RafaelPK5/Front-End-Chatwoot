@@ -2,7 +2,7 @@ import React from 'react';
 import { useUserStore } from '../../store/userStore';
 
 export const Navbar: React.FC = () => {
-  const { agentName, isLoggedIn, logout } = useUserStore();
+  const { user, isLoggedIn, logout } = useUserStore();
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
@@ -16,7 +16,7 @@ export const Navbar: React.FC = () => {
           
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-600">
-              {agentName}
+              {user?.name || 'Usuário'}
             </span>
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
               isLoggedIn 

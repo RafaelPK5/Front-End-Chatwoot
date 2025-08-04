@@ -175,7 +175,7 @@ export default function DashboardAlerts() {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-medium text-gray-900">Alertas do Sistema</h3>
         <div className="flex items-center space-x-2">
-          <AlertTriangle className="h-5 w-5 text-yellow-500" />
+          <AlertTriangle className="h-1 w-1 text-yellow-500" />
           <span className="text-sm text-gray-500">{alerts.length} alertas ativos</span>
         </div>
       </div>
@@ -184,7 +184,7 @@ export default function DashboardAlerts() {
         {alerts.map((alert) => (
           <div
             key={alert.id}
-            className={`border rounded-lg p-4 ${getAlertColor(alert.type)}`}
+            className={`border rounded-lg p-1 ${getAlertColor(alert.type)}`}
           >
             <div className="flex items-start justify-between">
               <div className="flex items-start space-x-3">
