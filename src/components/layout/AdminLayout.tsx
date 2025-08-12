@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Sidebar from './Sidebar';
 import { Bell, AlertTriangle, Info, CheckCircle, XCircle } from 'lucide-react';
 import { useDashboardAlerts } from '../admin/useDashboardAlerts';
@@ -37,7 +38,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center justify-between px-4 py-5">
             {/* Botão menu mobile */}
             <button
               onClick={() => setSidebarOpen(true)}
@@ -51,9 +52,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             {/* Título da página */}
             <div className="flex-1 lg:ml-0 ml-4">
               <div className="flex items-center space-x-3">
-                <img 
+                <Image 
                   src="/logo-communica.png" 
                   alt="Communica Logo" 
+                  width={32}
+                  height={32}
                   className="h-8 w-auto"
                 />
                 <h1 className="text-xl font-semibold text-gray-900 dark:text-white">

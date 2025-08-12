@@ -1,18 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
+  images: {
+    remotePatterns: [
       {
-        source: '/api/chatwoot/:path*',
-        destination: 'http://212.85.17.18:8081/:path*',
+        protocol: 'http',
+        hostname: '212.85.17.18',
+        port: '8081',
+        pathname: '/rails/active_storage/**',
       },
-    ];
+    ],
   },
   async headers() {
     return [
       {
-        source: '/api/chatwoot/:path*',
+        source: '/api/:path*',
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
@@ -20,11 +22,11 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Access-Control-Allow-Methods',
-            value: 'GET, POST, PUT, DELETE, OPTIONS',
+            value: 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
           },
           {
             key: 'Access-Control-Allow-Headers',
-            value: 'Content-Type, Authorization',
+            value: 'Content-Type, Authorization, api_access_token',
           },
         ],
       },

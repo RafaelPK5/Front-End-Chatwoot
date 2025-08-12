@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUserStore } from '../../store/userStore';
 import { getConversationStats, getAgents, getEvolutionInstances } from '../../lib/api/chatwootAPI';
 import { 
-  Activity, Clock, TrendingUp, TrendingDown, 
-  Users, MessageSquare, AlertTriangle, CheckCircle, Wifi, WifiOff 
+  Activity, TrendingUp, TrendingDown, 
+  AlertTriangle, CheckCircle, Wifi, WifiOff 
 } from 'lucide-react';
 
 interface RealTimeMetricsProps {
@@ -23,7 +23,7 @@ export default function RealTimeMetrics({ refreshInterval = 30000 }: RealTimeMet
   });
   const [loading, setLoading] = useState(false);
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     if (!user?.auth_token) return;
     
     try {
@@ -53,13 +53,6 @@ export default function RealTimeMetrics({ refreshInterval = 30000 }: RealTimeMet
       const onlineAgents = agentsList.filter((agent: any) => agent.availability_status === 'online').length;
       const offlineAgents = agentsList.filter((agent: any) => agent.availability_status !== 'online').length;
       
-      // Debug: Log das instâncias para verificar os status
-      console.log('🔍 Instâncias Evolution:', instancesList.map((instance: any) => ({
-        name: instance.name,
-        connectionStatus: instance.connectionStatus,
-        enabled: instance.Chatwoot?.enabled
-      })));
-      
       const activeInboxes = instancesList.filter((instance: any) => 
         instance.connectionStatus === 'open' || instance.connectionStatus === 'connecting'
       ).length;
@@ -85,14 +78,16 @@ export default function RealTimeMetrics({ refreshInterval = 30000 }: RealTimeMet
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.auth_token]);
 
   useEffect(() => {
-    fetchMetrics();
+    if (user?.auth_token) {
+      fetchMetrics();
+    }
     
     const interval = setInterval(fetchMetrics, refreshInterval);
     return () => clearInterval(interval);
-  }, [user?.auth_token, refreshInterval]);
+  }, [fetchMetrics, refreshInterval, user?.auth_token]);
 
   const getTrendIcon = (value: number, threshold: number) => {
     if (value > threshold) {

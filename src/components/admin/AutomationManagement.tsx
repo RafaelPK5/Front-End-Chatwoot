@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useUserStore } from '../../store/userStore';
-import { getAgents, getInboxes, getTeams, getAutomations, createAutomation, updateAutomation, deleteAutomation, testAutomationEndpoints } from '../../lib/api/chatwootAPI';
+import { getAgents, getInboxes, getTeams, getAutomations, createAutomation, updateAutomation, deleteAutomation } from '../../lib/api/chatwootAPI';
 
 interface Agent {
   id: number;
@@ -66,14 +66,6 @@ export default function AutomationManagement() {
   const [inboxes, setInboxes] = useState<Inbox[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [automationRules, setAutomationRules] = useState<AutomationRule[]>([]);
-  const [endpointStatus, setEndpointStatus] = useState<{
-    available: boolean;
-    endpoint?: string;
-    message: string;
-  }>({
-    available: false,
-    message: 'Verificando endpoints...'
-  });
   
   // Estados para modais
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -129,160 +121,44 @@ export default function AutomationManagement() {
   const [activeTab, setActiveTab] = useState<'conditions' | 'actions'>('conditions');
 
   useEffect(() => {
-    if (!user?.auth_token) {
-      console.log('❌ Usuário não autenticado ou token não disponível');
-      return;
+    if (user?.auth_token) {
+      fetchData();
     }
+  }, [user?.auth_token]);
 
     const fetchData = async () => {
+      if (!user?.auth_token) return;
+      
       try {
         setLoading(true);
-        setError(null);
-        
-        console.log('🔄 Iniciando busca de dados para automações...');
-        
-        // Buscar dados em paralelo
-        const [agentsData, inboxesData, teamsData] = await Promise.all([
-          getAgents(user.auth_token),
-          getInboxes(user.auth_token),
-          getTeams(user.auth_token)
-        ]);
-        
-        // Verificar estrutura dos dados retornados
-        console.log('🔍 Estrutura dos dados da API:', {
-          agentsData: agentsData,
-          teamsData: teamsData,
-          inboxesData: inboxesData
-        });
+      setError(null);
 
-        // Processar dados com fallback para diferentes estruturas
-        let agentsList = [];
-        let inboxesList = [];
-        let teamsList = [];
+      // Buscar times e agentes
+      const [teamsData, agentsData] = await Promise.all([
+        getTeams(user.auth_token),
+        getAgents(user.auth_token)
+      ]);
 
-        // Verificar diferentes possíveis estruturas de dados
-        if (agentsData.payload && Array.isArray(agentsData.payload)) {
-          agentsList = agentsData.payload;
-        } else if (Array.isArray(agentsData)) {
-          agentsList = agentsData;
-        } else if (agentsData && typeof agentsData === 'object') {
-          // Tentar encontrar array em diferentes propriedades
-          const possibleArrays = Object.values(agentsData).filter(val => Array.isArray(val));
-          if (possibleArrays.length > 0) {
-            agentsList = possibleArrays[0];
-          }
-        }
+      setTeams(teamsData.payload || []);
+      setAgents(agentsData.payload || []);
 
-        if (teamsData.payload && Array.isArray(teamsData.payload)) {
-          teamsList = teamsData.payload;
-        } else if (Array.isArray(teamsData)) {
-          teamsList = teamsData;
-        } else if (teamsData && typeof teamsData === 'object') {
-          // Tentar encontrar array em diferentes propriedades
-          const possibleArrays = Object.values(teamsData).filter(val => Array.isArray(val));
-          if (possibleArrays.length > 0) {
-            teamsList = possibleArrays[0];
-          }
-        }
+      // Buscar automações
+      try {
+        const automationsData = await getAutomations(user.auth_token);
+        const automationsList = automationsData.payload || [];
+        setAutomationRules(automationsList);
+      } catch (automationError) {
+        console.error('Erro ao buscar automações:', automationError);
+        setAutomationRules([]);
+      }
 
-        if (inboxesData.payload && Array.isArray(inboxesData.payload)) {
-          inboxesList = inboxesData.payload;
-        } else if (Array.isArray(inboxesData)) {
-          inboxesList = inboxesData;
-        } else if (inboxesData && typeof inboxesData === 'object') {
-          // Tentar encontrar array em diferentes propriedades
-          const possibleArrays = Object.values(inboxesData).filter(val => Array.isArray(val));
-          if (possibleArrays.length > 0) {
-            inboxesList = possibleArrays[0];
-          }
-        }
-
-        console.log('🔧 Dados processados:', {
-          agentsList: agentsList.length,
-          teamsList: teamsList.length,
-          inboxesList: inboxesList.length
-        });
-        
-        // Log detalhado dos dados processados
-        console.log('🔍 [FETCH] Dados detalhados:', {
-          agentsList: agentsList.map((a: any) => ({ id: a.id, name: a.name })),
-          teamsList: teamsList.map((t: any) => ({ id: t.id, name: t.name })),
-          inboxesList: inboxesList.map((i: any) => ({ id: i.id, name: i.name }))
-        });
-        
-        console.log('📊 Dados carregados:', {
-          agents: agentsList.length,
-          inboxes: inboxesList.length,
-          teams: teamsList.length
-        });
-        
-        console.log('🔍 Detalhes dos dados:', {
-          agentsData: agentsData,
-          teamsData: teamsData,
-          agentsList: agentsList,
-          teamsList: teamsList
-        });
-        
-        setAgents(agentsList);
-        setInboxes(inboxesList);
-        setTeams(teamsList);
-        
-        // Testar endpoints de automação primeiro
-        console.log('🔍 Testando endpoints de automação disponíveis...');
-        try {
-          const availableEndpoint = await testAutomationEndpoints(user.auth_token);
-          if (availableEndpoint) {
-            console.log('✅ Endpoint de automação encontrado:', availableEndpoint.endpoint);
-            setEndpointStatus({
-              available: true,
-              endpoint: availableEndpoint.endpoint,
-              message: `Endpoint de automação encontrado: ${availableEndpoint.endpoint}`
-            });
-          } else {
-            console.log('⚠️ Nenhum endpoint de automação específico encontrado');
-            setEndpointStatus({
-              available: false,
-              message: 'Nenhum endpoint de automação específico encontrado'
-            });
-          }
-        } catch (endpointError) {
-          console.error('❌ Erro ao testar endpoints:', endpointError);
-          setEndpointStatus({
-            available: false,
-            message: 'Erro ao testar endpoints de automação'
-          });
-        }
-
-        // Buscar automações
-        console.log('🔄 Buscando regras de automação...');
-        try {
-          const automationsData = await getAutomations(user.auth_token);
-          console.log('📊 Resposta da API de automações:', automationsData);
-          
-          const automationsList = processAutomationsResponse(automationsData);
-          console.log('📋 Lista processada de automações:', automationsList);
-          
-          setAutomationRules(automationsList);
-        } catch (automationError) {
-          console.error('❌ Erro ao carregar automações:', automationError);
-          console.log('⚠️ Definindo automações como array vazio');
-          setAutomationRules([]);
-        }
-        
-      } catch (err) {
-        console.error('❌ Erro ao carregar dados:', err);
-        setError('Erro ao carregar dados. Verifique o console para mais detalhes.');
+    } catch (error: any) {
+      console.error('Erro ao buscar dados:', error);
+      setError(error.message || 'Erro ao carregar dados');
       } finally {
         setLoading(false);
       }
     };
-
-    fetchData();
-    
-    return () => {
-      console.log('🔄 Cleanup do useEffect de busca de dados');
-    };
-  }, [user?.auth_token]);
 
   // Monitorar mudanças no estado das automações
   useEffect(() => {
@@ -343,25 +219,6 @@ export default function AutomationManagement() {
     });
   }
 
-  // Função de teste para verificar dados
-  const testData = () => {
-    console.log('🧪 Teste de dados:', {
-      teams: teams,
-      agents: agents,
-      teamsLength: teams.length,
-      agentsLength: agents.length,
-      actionParams: actionParams
-    });
-    
-    // Log detalhado dos dropdowns
-    console.log('🔍 [TESTE] Verificando dropdowns:', {
-      teamsOptions: teams.map((t: Team) => ({ id: t.id, name: t.name })),
-      agentsOptions: agents.map((a: Agent) => ({ id: a.id, name: a.name })),
-      currentAssignToTeam: actionParams.assignToTeam,
-      currentAssignToAgent: actionParams.assignToAgent
-    });
-  };
-
   // Função utilitária para processar resposta da API
   const processAutomationsResponse = (automationsData: any) => {
     console.log('🔍 Processando resposta de automações:', automationsData);
@@ -401,7 +258,7 @@ export default function AutomationManagement() {
       // Preparar dados no formato correto da API
       const automationData = {
         name: formData.name.trim(),
-        description: formData.description || '',
+      description: formData.description || '',
         event_name: formData.event_name,
         active: formData.active,
         actions: formData.actions,
@@ -419,8 +276,8 @@ export default function AutomationManagement() {
       const automationsList = processAutomationsResponse(automationsData);
       setAutomationRules(automationsList);
       
-      setShowCreateModal(false);
-      resetForm();
+    setShowCreateModal(false);
+    resetForm();
       setError(null); // Limpar erro anterior
     } catch (err) {
       console.error('❌ Erro ao criar automação:', err);
@@ -459,9 +316,9 @@ export default function AutomationManagement() {
       const automationsList = processAutomationsResponse(automationsData);
       setAutomationRules(automationsList);
       
-      setShowEditModal(false);
-      setEditingRule(null);
-      resetForm();
+    setShowEditModal(false);
+    setEditingRule(null);
+    resetForm();
       setError(null); // Limpar erro anterior
     } catch (err) {
       console.error('❌ Erro ao atualizar automação:', err);
@@ -751,154 +608,121 @@ export default function AutomationManagement() {
   }
 
   if (!user) {
-    return (
-      <div className="p-8 text-center">
-        <div className="text-gray-400 mb-4">
+  return (
+      <div className="p-8 text-center bg-gray-50 dark:bg-gray-900 min-h-screen">
+        <div className="text-gray-400 dark:text-gray-500 mb-4">
           <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Acesso Restrito</h3>
-        <p className="text-gray-500 mb-4">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Acesso Restrito</h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">
           Você precisa estar logado para acessar esta página.
         </p>
-        <button
+          <button
           onClick={() => window.location.href = '/'}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
-        >
+          >
           Ir para Login
-        </button>
-      </div>
+          </button>
+        </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="p-8 text-center">
-        <div className="text-gray-400 mb-4">
+      <div className="p-8 text-center bg-gray-50 dark:bg-gray-900 min-h-screen">
+        <div className="text-gray-400 dark:text-gray-500 mb-4">
           <svg className="mx-auto h-12 w-12 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-        </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Carregando...</h3>
-        <p className="text-gray-500">Buscando dados de automação</p>
-      </div>
+                </svg>
+              </div>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Carregando...</h3>
+        <p className="text-gray-500 dark:text-gray-400">Buscando dados de automação</p>
+              </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-8 text-center">
+      <div className="p-8 text-center bg-gray-50 dark:bg-gray-900 min-h-screen">
         <div className="text-red-400 mb-4">
           <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Erro ao carregar dados</h3>
-        <p className="text-gray-500 mb-4">{error}</p>
+                </svg>
+              </div>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Erro ao carregar dados</h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">{error}</p>
         <button
           onClick={() => window.location.reload()}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
         >
           Tentar Novamente
         </button>
-      </div>
+                </div>
     );
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Automação de Alocação de Conversas</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Automação de Alocação de Conversas</h1>
+          <p className="text-gray-600 dark:text-gray-400">
             Configure regras de automação baseadas em gatilhos e ações para otimizar a distribuição de conversas
           </p>
-        </div>
+              </div>
 
         {/* Alert de erro */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded">
             {error}
-          </div>
+            </div>
         )}
 
-        {/* Status dos Endpoints */}
-        <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded">
-          <div className="flex items-center">
-            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <strong>Status dos Endpoints:</strong> {endpointStatus.message}
-              {endpointStatus.endpoint && (
-                <div className="text-sm mt-1">
-                  <code className="bg-blue-100 px-2 py-1 rounded">{endpointStatus.endpoint}</code>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+
 
         {/* Estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-900">Total de Regras</h3>
-            <p className="text-3xl font-bold text-blue-600">{automationRules.length}</p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-900">Regras Ativas</h3>
-            <p className="text-3xl font-bold text-green-600">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Total de Regras</h3>
+            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{automationRules.length}</p>
+              </div>
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Regras Ativas</h3>
+            <p className="text-3xl font-bold text-green-600 dark:text-green-400">
               {automationRules.filter(r => r.active).length}
             </p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-900">Conversas Processadas</h3>
-            <p className="text-3xl font-bold text-purple-600">0</p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-900">Taxa de Sucesso</h3>
-            <p className="text-3xl font-bold text-orange-600">
-              {automationRules.length > 0 
-                ? Math.round((automationRules.filter(r => r.active).length / automationRules.length) * 100)
-                : 0}%
-            </p>
-          </div>
-        </div>
+                </div>
+              </div>
 
         {/* Botão Criar Nova Regra */}
         <div className="mb-6 flex gap-2">
-          <button
-            onClick={testData}
-            className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-lg font-medium transition-colors"
-          >
-            🧪 Testar Dados
-          </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
           >
             + Criar Nova Regra de Automação
           </button>
-        </div>
+            </div>
 
         {/* Lista de Regras */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Regras de Automação</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden border border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Regras de Automação</h2>
           </div>
-          
+
           {automationRules.length === 0 ? (
             <div className="p-8 text-center">
-              <div className="text-gray-400 mb-4">
+              <div className="text-gray-400 dark:text-gray-500 mb-4">
                 <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma regra de automação</h3>
-              <p className="text-gray-500 mb-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Nenhuma regra de automação</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
                 Comece criando sua primeira regra de automação para otimizar a alocação de conversas.
               </p>
               <button
@@ -907,107 +731,107 @@ export default function AutomationManagement() {
               >
                 Criar Primeira Regra
               </button>
-            </div>
+              </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Regra
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Gatilho
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ações
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Ações
+                </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Estatísticas
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {automationRules.map((rule) => (
-                    <tr key={rule.id} className="hover:bg-gray-50">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Status
+                </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Ações
+                </th>
+              </tr>
+            </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {automationRules.map((rule) => (
+                    <tr key={rule.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{rule.name}</div>
-                          <div className="text-sm text-gray-500">{rule.description}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">{rule.name}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{rule.description}</div>
                         </div>
-                      </td>
+                  </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-white">
                           <div>Evento: {rule.event_name}</div>
                           <div>Condições: {rule.conditions.length}</div>
                           {rule.conditions.map((condition, index) => (
-                            <div key={index} className="text-xs text-gray-500">
+                            <div key={index} className="text-xs text-gray-500 dark:text-gray-400">
                               {condition.attribute_key}: {condition.values.join(', ')}
                             </div>
                           ))}
                         </div>
-                      </td>
+                  </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-white">
                           <div>Ações: {rule.actions.length}</div>
                           {rule.actions.map((action, index) => (
-                            <div key={index} className="text-xs text-gray-500">
+                            <div key={index} className="text-xs text-gray-500 dark:text-gray-400">
                               {action.action_name}: {action.action_params.join(', ')}
                             </div>
                           ))}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-white">
                           <div>Criada: {formatDate(new Date(rule.created_on * 1000).toISOString())}</div>
                           <div>Execuções: 0</div>
-                        </div>
-                      </td>
+                    </div>
+                  </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                           rule.active 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                         }`}>
                           {rule.active ? 'Ativa' : 'Inativa'}
                         </span>
-                      </td>
+                  </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleToggleRule(rule.id)}
+                    <button
+                      onClick={() => handleToggleRule(rule.id)}
                             className={`px-3 py-1 rounded text-xs font-medium ${
                               rule.active
-                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800'
+                                : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800'
                             }`}
                           >
                             {rule.active ? 'Desativar' : 'Ativar'}
-                          </button>
-                          <button
-                            onClick={() => openEditModal(rule)}
-                            className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded text-xs font-medium"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRule(rule.id)}
-                            className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1 rounded text-xs font-medium"
-                          >
-                            Excluir
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </button>
+                      <button
+                        onClick={() => openEditModal(rule)}
+                            className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 px-3 py-1 rounded text-xs font-medium"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteRule(rule.id)}
+                            className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800 px-3 py-1 rounded text-xs font-medium"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
             </div>
           )}
         </div>
@@ -1016,50 +840,50 @@ export default function AutomationManagement() {
       {/* Modal Criar Regra */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Criar Nova Regra de Automação</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Criar Nova Regra de Automação</h3>
               
               {/* Informações básicas */}
               <div className="space-y-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Nome da Regra <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className={`mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                      formData.name.trim() === '' ? 'border-red-300' : 'border-gray-300'
+                    className={`mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                      formData.name.trim() === '' ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Ex: Atribuir conversas urgentes"
                   />
                   {formData.name.trim() === '' && (
-                    <p className="mt-1 text-sm text-red-600">O nome da regra é obrigatório</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">O nome da regra é obrigatório</p>
                   )}
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Descrição</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Descrição</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     rows={3}
                     placeholder="Descreva o propósito desta regra"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Gatilho (Quando)</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Gatilho (Quando)</label>
                   <select
                     value={formData.event_name}
                     onChange={(e) => setFormData({
                       ...formData, 
                       event_name: e.target.value as 'conversation_created' | 'message_created' | 'conversation_assigned' | 'conversation_resolved'
                     })}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   >
                     <option value="conversation_created">Conversa é criada</option>
                     <option value="message_created">Mensagem é criada</option>
@@ -1072,7 +896,7 @@ export default function AutomationManagement() {
               {/* Abas */}
               <div className="border-b border-gray-200 mb-6">
                 <nav className="-mb-px flex space-x-8">
-                  <button
+              <button
                     onClick={() => setActiveTab('conditions')}
                     className={`py-2 px-1 border-b-2 font-medium text-sm ${
                       activeTab === 'conditions'
@@ -1099,8 +923,8 @@ export default function AutomationManagement() {
               {activeTab === 'conditions' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h4 className="text-md font-medium text-gray-900">Condições da Regra</h4>
-                    <span className="text-sm text-gray-500">{formData.conditions.length} condição(ões)</span>
+                    <h4 className="text-md font-medium text-gray-900 dark:text-white">Condições da Regra</h4>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{formData.conditions.length} condição(ões)</span>
                   </div>
                   
                   {/* Lista de condições existentes */}
@@ -1108,12 +932,12 @@ export default function AutomationManagement() {
                     <div key={index} className="bg-gray-50 p-4 rounded-lg border">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {condition.attribute_key === 'content' ? 'Conteúdo da mensagem' : 
                              condition.attribute_key === 'inbox_id' ? 'Inbox' :
                              condition.attribute_key}
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
                             {condition.filter_operator === 'contains' ? 'contém' : 
                              condition.filter_operator === 'equal_to' ? 'igual a' :
                              condition.filter_operator}: {
@@ -1140,9 +964,9 @@ export default function AutomationManagement() {
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
+                </svg>
+              </button>
+            </div>
                     </div>
                   ))}
 
@@ -1150,12 +974,12 @@ export default function AutomationManagement() {
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                     <h5 className="text-sm font-medium text-blue-900 mb-3">Adicionar Nova Condição</h5>
                     <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Tipo de Condição</label>
+                <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Condição</label>
                         <select
                           value={newCondition.attribute_key}
                           onChange={(e) => setNewCondition({...newCondition, attribute_key: e.target.value})}
-                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                         >
                           <option value="content">Conteúdo da mensagem</option>
                           <option value="inbox_id">Inbox</option>
@@ -1165,11 +989,11 @@ export default function AutomationManagement() {
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Operador</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Operador</label>
                         <select
                           value={newCondition.filter_operator}
                           onChange={(e) => setNewCondition({...newCondition, filter_operator: e.target.value})}
-                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                         >
                           <option value="contains">contém</option>
                           <option value="equal_to">igual a</option>
@@ -1181,8 +1005,8 @@ export default function AutomationManagement() {
                       {/* Valores - condicional baseado no tipo de condição */}
                       {newCondition.attribute_key === 'inbox_id' ? (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Selecionar Inboxes</label>
-                          <div className="mt-1 border border-gray-300 rounded-md p-2 max-h-40 overflow-y-auto">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Inboxes</label>
+                          <div className="mt-1 border border-gray-300 dark:border-gray-600 rounded-md p-2 max-h-40 overflow-y-auto">
                             {inboxes.map((inbox) => (
                               <label key={inbox.id} className="flex items-center space-x-2 py-1">
                                 <input
@@ -1204,7 +1028,7 @@ export default function AutomationManagement() {
                                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
                                 <span className="text-sm text-gray-700">{inbox.name}</span>
-                              </label>
+                  </label>
                             ))}
                           </div>
                           {conditionParams.inboxIds.length > 0 && (
@@ -1215,18 +1039,18 @@ export default function AutomationManagement() {
                         </div>
                       ) : (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Valores</label>
-                          <input
-                            type="text"
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Valores</label>
+                  <input
+                    type="text"
                             value={newCondition.values.join(', ')}
                             onChange={(e) => setNewCondition({
                               ...newCondition,
                               values: e.target.value.split(',').map(v => v.trim()).filter(v => v.length > 0)
                             })}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                             placeholder="Ex: urgente, help, suporte (separados por vírgula)"
-                          />
-                        </div>
+                  />
+                </div>
                       )}
 
                       <button
@@ -1243,8 +1067,8 @@ export default function AutomationManagement() {
               {activeTab === 'actions' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h4 className="text-md font-medium text-gray-900">Ações da Regra</h4>
-                    <span className="text-sm text-gray-500">{formData.actions.length} ação(ões)</span>
+                    <h4 className="text-md font-medium text-gray-900 dark:text-white">Ações da Regra</h4>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{formData.actions.length} ação(ões)</span>
                   </div>
                   
                   {/* Lista de ações existentes */}
@@ -1252,7 +1076,7 @@ export default function AutomationManagement() {
                     <div key={index} className="bg-gray-50 p-4 rounded-lg border">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {action.action_name === 'add_label' ? 'Adicionar Label' :
                              action.action_name === 'assign_team' ? 'Atribuir para Time' :
                              action.action_name === 'assign_agent' ? 'Atribuir para Agente' :
@@ -1260,7 +1084,7 @@ export default function AutomationManagement() {
                              action.action_name === 'send_message' ? 'Enviar Mensagem' :
                              action.action_name}
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
                             {action.action_name === 'assign_team' && action.action_params[0] ? 
                               teams.find(t => t.id === action.action_params[0])?.name || `Time ID: ${action.action_params[0]}` :
                              action.action_name === 'assign_agent' && action.action_params[0] ? 
@@ -1284,12 +1108,12 @@ export default function AutomationManagement() {
                   <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                     <h5 className="text-sm font-medium text-green-900 mb-3">Adicionar Nova Ação</h5>
                     <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Tipo de Ação</label>
+                <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Ação</label>
                         <select
                           value={newAction.action_name}
                           onChange={(e) => setNewAction({...newAction, action_name: e.target.value})}
-                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                         >
                           <option value="add_label">Adicionar Label</option>
                           <option value="assign_team">Atribuir para Time</option>
@@ -1302,11 +1126,11 @@ export default function AutomationManagement() {
                       {/* Parâmetros específicos baseados no tipo de ação */}
                       {newAction.action_name === 'assign_team' && (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Selecionar Time</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Time</label>
                           <select
                             value={actionParams.assignToTeam}
                             onChange={(e) => setActionParams({...actionParams, assignToTeam: e.target.value})}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                           >
                             <option value="">Selecione um time</option>
                             {teams.map((team) => (
@@ -1318,11 +1142,11 @@ export default function AutomationManagement() {
 
                       {newAction.action_name === 'assign_agent' && (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Selecionar Agente</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Agente</label>
                           <select
                             value={actionParams.assignToAgent}
                             onChange={(e) => setActionParams({...actionParams, assignToAgent: e.target.value})}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                           >
                             <option value="">Selecione um agente</option>
                             {agents.map((agent) => (
@@ -1334,11 +1158,11 @@ export default function AutomationManagement() {
 
                       {newAction.action_name === 'set_priority' && (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Definir Prioridade</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Definir Prioridade</label>
                           <select
                             value={actionParams.setPriority}
                             onChange={(e) => setActionParams({...actionParams, setPriority: e.target.value})}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                           >
                             <option value="low">Baixa</option>
                             <option value="medium">Média</option>
@@ -1350,28 +1174,28 @@ export default function AutomationManagement() {
 
                       {newAction.action_name === 'add_label' && (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Nome da Label</label>
-                          <input
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome da Label</label>
+                  <input
                             type="text"
                             value={actionParams.addLabel}
                             onChange={(e) => setActionParams({...actionParams, addLabel: e.target.value})}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                             placeholder="Ex: urgente, suporte, vip"
-                          />
-                        </div>
+                  />
+                </div>
                       )}
 
                       {newAction.action_name === 'send_message' && (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Mensagem</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Mensagem</label>
                           <textarea
                             value={actionParams.sendMessage}
                             onChange={(e) => setActionParams({...actionParams, sendMessage: e.target.value})}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                             rows={3}
                             placeholder="Digite a mensagem que será enviada automaticamente"
                           />
-                        </div>
+              </div>
                       )}
 
                       <button
@@ -1392,7 +1216,7 @@ export default function AutomationManagement() {
                   onChange={(e) => setFormData({...formData, active: e.target.checked})}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <label className="ml-2 block text-sm text-gray-900">Regra ativa</label>
+                <label className="ml-2 block text-sm text-gray-900 dark:text-white">Regra ativa</label>
               </div>
 
               <div className="flex justify-end space-x-3 mt-6">
@@ -1420,56 +1244,58 @@ export default function AutomationManagement() {
       {/* Modal Editar Regra */}
       {showEditModal && editingRule && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Editar Regra de Automação</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Editar Regra de Automação</h3>
               
               {/* Informações básicas */}
               <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
+              <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Nome da Regra <span className="text-red-500">*</span>
-                  </label>
+                </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className={`mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
-                      formData.name.trim() === '' ? 'border-red-300' : 'border-gray-300'
+                    className={`mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
+                      formData.name.trim() === '' ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
                     }`}
+                    placeholder="Ex: Atribuir conversas urgentes"
                   />
                   {formData.name.trim() === '' && (
-                    <p className="mt-1 text-sm text-red-600">O nome da regra é obrigatório</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">O nome da regra é obrigatório</p>
                   )}
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Descrição</label>
-                  <textarea
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Descrição</label>
+                <textarea
                     value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    rows={3}
-                  />
-                </div>
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                  rows={3}
+                    placeholder="Descreva o propósito desta regra"
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Gatilho (Quando)</label>
-                  <select
+                  <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Gatilho (Quando)</label>
+                    <select
                     value={formData.event_name}
-                    onChange={(e) => setFormData({
-                      ...formData, 
+                      onChange={(e) => setFormData({
+                        ...formData, 
                       event_name: e.target.value as 'conversation_created' | 'message_created' | 'conversation_assigned' | 'conversation_resolved'
                     })}
-                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   >
                     <option value="conversation_created">Conversa é criada</option>
                     <option value="message_created">Mensagem é criada</option>
                     <option value="conversation_assigned">Conversa é atribuída</option>
                     <option value="conversation_resolved">Conversa é resolvida</option>
-                  </select>
+                    </select>
                 </div>
-              </div>
+                  </div>
 
               {/* Abas */}
               <div className="border-b border-gray-200 mb-6">
@@ -1501,8 +1327,8 @@ export default function AutomationManagement() {
               {activeTab === 'conditions' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h4 className="text-md font-medium text-gray-900">Condições da Regra</h4>
-                    <span className="text-sm text-gray-500">{formData.conditions.length} condição(ões)</span>
+                    <h4 className="text-md font-medium text-gray-900 dark:text-white">Condições da Regra</h4>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{formData.conditions.length} condição(ões)</span>
                   </div>
                   
                   {/* Lista de condições existentes */}
@@ -1510,12 +1336,12 @@ export default function AutomationManagement() {
                     <div key={index} className="bg-gray-50 p-4 rounded-lg border">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {condition.attribute_key === 'content' ? 'Conteúdo da mensagem' : 
                              condition.attribute_key === 'inbox_id' ? 'Inbox' :
                              condition.attribute_key}
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
                             {condition.filter_operator === 'contains' ? 'contém' : 
                              condition.filter_operator === 'equal_to' ? 'igual a' :
                              condition.filter_operator}: {
@@ -1553,38 +1379,38 @@ export default function AutomationManagement() {
                     <h5 className="text-sm font-medium text-blue-900 mb-3">Adicionar Nova Condição</h5>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Tipo de Condição</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Condição</label>
                         <select
                           value={newCondition.attribute_key}
                           onChange={(e) => setNewCondition({...newCondition, attribute_key: e.target.value})}
-                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                         >
                           <option value="content">Conteúdo da mensagem</option>
                           <option value="inbox_id">Inbox</option>
                           <option value="status">Status da conversa</option>
                           <option value="priority">Prioridade</option>
-                        </select>
-                      </div>
+                    </select>
+                  </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Operador</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Operador</label>
                         <select
                           value={newCondition.filter_operator}
                           onChange={(e) => setNewCondition({...newCondition, filter_operator: e.target.value})}
-                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                         >
                           <option value="contains">contém</option>
                           <option value="equal_to">igual a</option>
                           <option value="not_equal_to">diferente de</option>
                           <option value="starts_with">começa com</option>
                         </select>
-                      </div>
+                </div>
 
                       {/* Valores - condicional baseado no tipo de condição */}
                       {newCondition.attribute_key === 'inbox_id' ? (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Selecionar Inboxes</label>
-                          <div className="mt-1 border border-gray-300 rounded-md p-2 max-h-40 overflow-y-auto">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Inboxes</label>
+                          <div className="mt-1 border border-gray-300 dark:border-gray-600 rounded-md p-2 max-h-40 overflow-y-auto">
                             {inboxes.map((inbox) => (
                               <label key={inbox.id} className="flex items-center space-x-2 py-1">
                                 <input
@@ -1606,7 +1432,7 @@ export default function AutomationManagement() {
                                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 />
                                 <span className="text-sm text-gray-700">{inbox.name}</span>
-                              </label>
+                  </label>
                             ))}
                           </div>
                           {conditionParams.inboxIds.length > 0 && (
@@ -1617,18 +1443,18 @@ export default function AutomationManagement() {
                         </div>
                       ) : (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Valores</label>
-                          <input
-                            type="text"
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Valores</label>
+                  <input
+                    type="text"
                             value={newCondition.values.join(', ')}
                             onChange={(e) => setNewCondition({
                               ...newCondition,
                               values: e.target.value.split(',').map(v => v.trim()).filter(v => v.length > 0)
                             })}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                             placeholder="Ex: urgente, help, suporte (separados por vírgula)"
-                          />
-                        </div>
+                  />
+                </div>
                       )}
 
                       <button
@@ -1637,7 +1463,7 @@ export default function AutomationManagement() {
                       >
                         Adicionar Condição
                       </button>
-                    </div>
+              </div>
                   </div>
                 </div>
               )}
@@ -1645,8 +1471,8 @@ export default function AutomationManagement() {
               {activeTab === 'actions' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h4 className="text-md font-medium text-gray-900">Ações da Regra</h4>
-                    <span className="text-sm text-gray-500">{formData.actions.length} ação(ões)</span>
+                    <h4 className="text-md font-medium text-gray-900 dark:text-white">Ações da Regra</h4>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{formData.actions.length} ação(ões)</span>
                   </div>
                   
                   {/* Lista de ações existentes */}
@@ -1654,7 +1480,7 @@ export default function AutomationManagement() {
                     <div key={index} className="bg-gray-50 p-4 rounded-lg border">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {action.action_name === 'add_label' ? 'Adicionar Label' :
                              action.action_name === 'assign_team' ? 'Atribuir para Time' :
                              action.action_name === 'assign_agent' ? 'Atribuir para Agente' :
@@ -1662,7 +1488,7 @@ export default function AutomationManagement() {
                              action.action_name === 'send_message' ? 'Enviar Mensagem' :
                              action.action_name}
                           </div>
-                          <div className="text-sm text-gray-600">
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
                             {action.action_name === 'assign_team' && action.action_params[0] ? 
                               teams.find(t => t.id === action.action_params[0])?.name || `Time ID: ${action.action_params[0]}` :
                              action.action_name === 'assign_agent' && action.action_params[0] ? 
@@ -1686,12 +1512,12 @@ export default function AutomationManagement() {
                   <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                     <h5 className="text-sm font-medium text-green-900 mb-3">Adicionar Nova Ação</h5>
                     <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Tipo de Ação</label>
-                        <select
+                  <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Tipo de Ação</label>
+                    <select
                           value={newAction.action_name}
                           onChange={(e) => setNewAction({...newAction, action_name: e.target.value})}
-                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                         >
                           <option value="add_label">Adicionar Label</option>
                           <option value="assign_team">Atribuir para Time</option>
@@ -1704,76 +1530,76 @@ export default function AutomationManagement() {
                       {/* Parâmetros específicos baseados no tipo de ação */}
                       {newAction.action_name === 'assign_team' && (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Selecionar Time</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Time</label>
                           <select
                             value={actionParams.assignToTeam}
                             onChange={(e) => setActionParams({...actionParams, assignToTeam: e.target.value})}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                           >
                             <option value="">Selecione um time</option>
-                            {teams.map((team) => (
+                      {teams.map((team) => (
                               <option key={team.id} value={team.id}>{team.name}</option>
-                            ))}
-                          </select>
-                        </div>
+                      ))}
+                    </select>
+                  </div>
                       )}
 
                       {newAction.action_name === 'assign_agent' && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Selecionar Agente</label>
-                          <select
+                  <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Selecionar Agente</label>
+                    <select
                             value={actionParams.assignToAgent}
                             onChange={(e) => setActionParams({...actionParams, assignToAgent: e.target.value})}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                           >
                             <option value="">Selecione um agente</option>
-                            {agents.map((agent) => (
+                      {agents.map((agent) => (
                               <option key={agent.id} value={agent.id}>{agent.name}</option>
-                            ))}
-                          </select>
-                        </div>
+                      ))}
+                    </select>
+                  </div>
                       )}
 
                       {newAction.action_name === 'set_priority' && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Definir Prioridade</label>
-                          <select
+                  <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Definir Prioridade</label>
+                    <select
                             value={actionParams.setPriority}
                             onChange={(e) => setActionParams({...actionParams, setPriority: e.target.value})}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                           >
-                            <option value="low">Baixa</option>
-                            <option value="medium">Média</option>
-                            <option value="high">Alta</option>
-                            <option value="urgent">Urgente</option>
-                          </select>
-                        </div>
+                      <option value="low">Baixa</option>
+                      <option value="medium">Média</option>
+                      <option value="high">Alta</option>
+                      <option value="urgent">Urgente</option>
+                    </select>
+                  </div>
                       )}
 
                       {newAction.action_name === 'add_label' && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">Nome da Label</label>
-                          <input
-                            type="text"
+                  <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nome da Label</label>
+                    <input
+                      type="text"
                             value={actionParams.addLabel}
                             onChange={(e) => setActionParams({...actionParams, addLabel: e.target.value})}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                             placeholder="Ex: urgente, suporte, vip"
-                          />
-                        </div>
+                    />
+                  </div>
                       )}
 
                       {newAction.action_name === 'send_message' && (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Mensagem</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Mensagem</label>
                           <textarea
                             value={actionParams.sendMessage}
                             onChange={(e) => setActionParams({...actionParams, sendMessage: e.target.value})}
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                             rows={3}
                             placeholder="Digite a mensagem que será enviada automaticamente"
                           />
-                        </div>
+                </div>
                       )}
 
                       <button
@@ -1782,19 +1608,19 @@ export default function AutomationManagement() {
                       >
                         Adicionar Ação
                       </button>
-                    </div>
+              </div>
                   </div>
                 </div>
               )}
 
               <div className="flex items-center mt-6">
-                <input
-                  type="checkbox"
+                  <input
+                    type="checkbox"
                   checked={formData.active}
                   onChange={(e) => setFormData({...formData, active: e.target.checked})}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <label className="ml-2 block text-sm text-gray-900">Regra ativa</label>
+                <label className="ml-2 block text-sm text-gray-900 dark:text-white">Regra ativa</label>
               </div>
 
               <div className="flex justify-end space-x-3 mt-6">

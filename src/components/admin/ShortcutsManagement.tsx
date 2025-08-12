@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useUserStore } from '@/store/userStore';
 import { 
   getCannedResponses, 
@@ -26,7 +26,7 @@ export default function ShortcutsManagement() {
   });
 
   // Buscar respostas rápidas
-  const fetchCannedResponses = async () => {
+  const fetchCannedResponses = useCallback(async () => {
     if (!user?.auth_token) {
       setError('Token de autenticação não encontrado');
       return;
@@ -43,12 +43,12 @@ export default function ShortcutsManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.auth_token]);
 
   // Carregar dados na inicialização
   useEffect(() => {
     fetchCannedResponses();
-  }, [user?.auth_token]);
+  }, [fetchCannedResponses]);
 
   // Abrir modal para criar nova resposta
   const openCreateModal = () => {

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import Image from 'next/image';
 import { useUserStore } from '@/store/userStore';
 import ShortcutsManagement from './ShortcutsManagement';
 import LabelsManagement from './LabelsManagement';
@@ -79,7 +80,7 @@ export default function SettingsManagement() {
       setError(null);
       
       const response = await fetch(`${settings.chatwoot.apiUrl}/api/chatwoot/api/v1/accounts/${settings.chatwoot.accountId}/agents`, {
-        headers: { 'api_access_token': user.auth_token }
+        headers: { 'api_access_token': user.auth_token || '' }
       });
 
       if (response.ok) {
@@ -139,13 +140,15 @@ export default function SettingsManagement() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center space-x-4">
-          <img 
+          <Image 
             src="/logo-communica.png" 
             alt="Communica Logo" 
+            width={48}
+            height={48}
             className="h-12 w-auto"
           />
           <div>
@@ -277,7 +280,7 @@ export default function SettingsManagement() {
 
       {/* Conteúdo das Tabs */}
       {activeTab === 'general' && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 border border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Configurações Gerais</h2>
           
           <div className="space-y-4">
@@ -308,7 +311,7 @@ export default function SettingsManagement() {
       )}
 
       {activeTab === 'chatwoot' && (
-        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 border border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Configurações do Chatwoot</h2>
           
           <div className="space-y-4">
@@ -351,28 +354,28 @@ export default function SettingsManagement() {
       )}
 
       {activeTab === 'evolution' && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Configurações da Evolution API</h2>
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Configurações da Evolution API</h2>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">URL da API</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">URL da API</label>
               <input
                 type="url"
                 value={settings.evolution.apiUrl}
                 onChange={(e) => setSettings({...settings, evolution: {...settings.evolution, apiUrl: e.target.value}})}
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="http://212.85.17.18:8080"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700">API Key</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">API Key</label>
               <input
                 type="password"
                 value={settings.evolution.apiKey}
                 onChange={(e) => setSettings({...settings, evolution: {...settings.evolution, apiKey: e.target.value}})}
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Sua API Key"
               />
             </div>
@@ -394,17 +397,17 @@ export default function SettingsManagement() {
       )}
 
       {activeTab === 'n8n' && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Configurações do N8N</h2>
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Configurações do N8N</h2>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">URL do Webhook</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">URL do Webhook</label>
               <input
                 type="url"
                 value={settings.n8n.webhookUrl}
                 onChange={(e) => setSettings({...settings, n8n: {...settings.n8n, webhookUrl: e.target.value}})}
-                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="http://212.85.17.18:5678/webhook/get-qrcode"
               />
             </div>

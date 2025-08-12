@@ -90,7 +90,7 @@ export function useDashboardAlerts() {
         });
       }
       setAlerts(newAlerts);
-    } catch (error) {
+    } catch {
       setAlerts([]);
     } finally {
       setLoading(false);

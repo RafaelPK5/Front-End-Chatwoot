@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { useUserStore } from '../../store/userStore';
-import { getInboxes, createInbox, updateInbox, deleteInbox, createInboxViaN8N, syncInboxes } from '../../lib/api/chatwootAPI';
+import { getInboxes, updateInbox, deleteInbox, createInboxViaN8N, syncInboxes, logoutEvolutionInstance } from '../../lib/api/chatwootAPI';
 
 interface Inbox {
   id: number;
@@ -48,10 +49,10 @@ export default function InboxManagement() {
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [editingInbox, setEditingInbox] = useState<Inbox | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<any>(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [connectingInbox, setConnectingInbox] = useState<InstanceItem | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState<string | null>(null);
   const [formData, setFormData] = useState<InboxFormData>({
     name: '',
     channel_type: 'evolution_api',
@@ -63,26 +64,7 @@ export default function InboxManagement() {
   const [statusFilter, setStatusFilter] = useState('');
   const [platformFilter, setPlatformFilter] = useState('');
 
-  useEffect(() => {
-    if (user?.auth_token) {
-      fetchInboxes();
-    } else {
-      setLoading(false);
-      setError('Usuário não autenticado');
-    }
-  }, [user?.auth_token]);
-
-  // Monitorar quando o modal do QR code é aberto
-  useEffect(() => {
-    if (showQRModal && qrCodeData) {
-      console.log('🎯 Modal do QR Code aberto');
-      console.log('📏 Tamanho do QR Code:', qrCodeData.length);
-      console.log('🔍 Estado do modal:', { showQRModal, hasQrCodeData: !!qrCodeData });
-      console.log('🎯 RENDERIZANDO MODAL DO QR CODE:', { showQRModal, hasQrCodeData: !!qrCodeData, qrCodeLength: qrCodeData?.length });
-    }
-  }, [showQRModal, qrCodeData]);
-
-  const fetchInboxes = async () => {
+  const fetchInboxes = useCallback(async () => {
     if (!user?.auth_token) {
       setError('Token de autenticação não encontrado');
       setLoading(false);
@@ -107,15 +89,13 @@ export default function InboxManagement() {
         }
       });
       
-             if (evolutionResponse.ok) {
-         const evolutionData = await evolutionResponse.json();
-         console.log('📡 Dados da Evolution API recebidos:', evolutionData);
-         setEvolutionInstances(evolutionData.instances || []);
-         console.log('✅ Evolution instances definidas:', evolutionData.instances?.length || 0);
-       } else {
-         console.warn('Não foi possível buscar instâncias da Evolution API');
-         setEvolutionInstances([]);
-       }
+      if (evolutionResponse.ok) {
+        const evolutionData = await evolutionResponse.json();
+        setEvolutionInstances(evolutionData.instances || []);
+      } else {
+        console.warn('Não foi possível buscar instâncias da Evolution API');
+        setEvolutionInstances([]);
+      }
       
     } catch (err: any) {
       console.error('Erro ao carregar dados:', err);
@@ -123,7 +103,28 @@ export default function InboxManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.auth_token]);
+
+  useEffect(() => {
+    if (user?.auth_token) {
+      fetchInboxes();
+    } else {
+      setLoading(false);
+      setError('Usuário não autenticado');
+    }
+  }, [fetchInboxes, user?.auth_token]);
+
+  // Monitorar quando o modal do QR code é aberto
+  useEffect(() => {
+    if (showQRModal && qrCodeData) {
+      console.log('🎯 Modal do QR Code aberto');
+      console.log('📏 Tamanho do QR Code:', qrCodeData.length);
+      console.log('🔍 Estado do modal:', { showQRModal, hasQrCodeData: !!qrCodeData });
+      console.log('🎯 RENDERIZANDO MODAL DO QR CODE:', { showQRModal, hasQrCodeData: !!qrCodeData, qrCodeLength: qrCodeData?.length });
+    }
+  }, [showQRModal, qrCodeData]);
+
+
 
   const handleCreateInbox = async () => {
     if (!user?.auth_token) {
@@ -484,7 +485,6 @@ export default function InboxManagement() {
       setError(null);
       
       const result = await syncInboxes(user.auth_token);
-      setSyncResult(result);
       
       console.log('✅ Sincronização concluída:', result);
       alert(`✅ Sincronização concluída!\n\nMaturação: ${result.maturationInboxes.length} inboxes\nPlataforma Digital: ${result.digitalPlatformInboxes.length} inboxes`);
@@ -572,10 +572,39 @@ export default function InboxManagement() {
     }
   };
 
-  const openConnectModal = (instance: InstanceItem) => {
-    setConnectingInbox(instance);
-    setShowConnectModal(true);
+  // Função para desconectar/logout de uma instância
+  const handleLogoutInstance = async (instance: InstanceItem) => {
+    if (!user?.auth_token) {
+      setError('Token de autenticação não encontrado');
+      return;
+    }
+    
+    if (!confirm(`Tem certeza que deseja desconectar a instância "${instance.name}"?`)) {
+      return;
+    }
+    
+    try {
+      setLogoutLoading(instance.name);
+      setError(null);
+      
+      // Usar o nome da instância da Evolution API
+      const evolutionInstanceName = instance.evolutionData?.chatwootName || instance.name;
+      
+      await logoutEvolutionInstance(user.auth_token, evolutionInstanceName);
+      
+      // Recarregar a lista de instâncias
+      fetchInboxes();
+      
+      alert(`✅ Instância "${instance.name}" desconectada com sucesso!`);
+    } catch (err: any) {
+      console.error('Erro ao desconectar instância:', err);
+      setError(err.message || 'Erro ao desconectar instância. Verifique o console para mais detalhes.');
+    } finally {
+      setLogoutLoading(null);
+    }
   };
+
+
 
 
 
@@ -602,13 +631,15 @@ export default function InboxManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-gray-50 dark:bg-gray-900 min-h-screen p-6">
              {/* Header */}
        <div className="flex justify-between items-center">
          <div className="flex items-center space-x-4">
-           <img 
+           <Image 
              src="/logo-communica.png" 
              alt="Communica Logo" 
+             width={40}
+             height={40}
              className="h-10 w-auto"
            />
            <div>
@@ -657,31 +688,31 @@ export default function InboxManagement() {
 
                {/* Statistics Panel */}
                  <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats.total}</div>
              <div className="text-sm text-gray-600 dark:text-gray-400">Total</div>
            </div>
-           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.digitalPlatform}</div>
              <div className="text-sm text-gray-600 dark:text-gray-400">Plataforma Digital</div>
            </div>
-           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.maturation}</div>
              <div className="text-sm text-gray-600 dark:text-gray-400">Maturação</div>
            </div>
-           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.evolution}</div>
              <div className="text-sm text-gray-600 dark:text-gray-400">Evolution</div>
            </div>
-           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.connected}</div>
              <div className="text-sm text-gray-600 dark:text-gray-400">Conectadas</div>
            </div>
-           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
              <div className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.disconnected}</div>
              <div className="text-sm text-gray-600 dark:text-gray-400">Desconectadas</div>
            </div>
-           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.connecting}</div>
              <div className="text-sm text-gray-600 dark:text-gray-400">Conectando</div>
            </div>
@@ -690,7 +721,7 @@ export default function InboxManagement() {
 
 
       {/* Filtros */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg mb-6">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg mb-6 border border-gray-200 dark:border-gray-700">
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
             Filtros
@@ -746,7 +777,7 @@ export default function InboxManagement() {
       </div>
 
       {/* Inboxes List */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700">
         <div className="px-4 py-5 sm:p-6">
                      <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
              Instâncias ({filteredInstances.length} de {allInstances.length})
@@ -762,7 +793,7 @@ export default function InboxManagement() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                  <thead className="bg-gray-50 dark:bg-gray-700">
                    <tr>
                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -784,16 +815,16 @@ export default function InboxManagement() {
                  </thead>
                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                       {filteredInstances.map((instance) => (
-                                            <tr key={instance.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                            <tr key={instance.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                           {instance.name}
                           {instance.evolutionData && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                               Evolution
                             </span>
                           )}
                           {!instance.evolutionData && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
                               Sem Evolution
                             </span>
                           )}
@@ -872,6 +903,27 @@ export default function InboxManagement() {
                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                                  </svg>
                                  {connecting ? 'Conectando...' : 'Conectar'}
+                               </button>
+                             )}
+                             
+                             {/* Botão Desconectar para instâncias com status "connecting" */}
+                             {instance.evolutionData && instance.status === 'connecting' && (
+                               <button
+                                 onClick={() => handleLogoutInstance(instance)}
+                                 disabled={logoutLoading === instance.name}
+                                 className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                               >
+                                 <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                 </svg>
+                                 {logoutLoading === instance.name ? (
+                                   <div className="flex items-center space-x-1">
+                                     <div className="animate-spin rounded-full h-3 w-3 border-b border-red-700"></div>
+                                     <span>Desconectando...</span>
+                                   </div>
+                                 ) : (
+                                   'Desconectar'
+                                 )}
                                </button>
                              )}
                              
@@ -1024,12 +1076,14 @@ export default function InboxManagement() {
                              <div className="text-center">
                  <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4">
                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">QR Code carregando...</p>
-                   <img 
+                   <Image 
                      src={qrCodeData}
                      alt="QR Code WhatsApp" 
+                     width={300}
+                     height={300}
                      className="mx-auto max-w-full h-auto"
                      style={{ maxHeight: '300px' }}
-                     onLoad={() => console.log('✅ QR Code carregado com sucesso')}
+ 
                      onError={(e) => console.error('❌ Erro ao carregar QR Code:', e)}
                    />
                  </div>
@@ -1071,12 +1125,14 @@ export default function InboxManagement() {
               <div className="text-center">
                 <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg mb-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">QR Code para reconexão...</p>
-                  <img 
+                  <Image 
                     src={qrCodeData}
                     alt="QR Code WhatsApp" 
+                    width={300}
+                    height={300}
                     className="mx-auto max-w-full h-auto"
                     style={{ maxHeight: '300px' }}
-                    onLoad={() => console.log('✅ QR Code de reconexão carregado')}
+
                     onError={(e) => console.error('❌ Erro ao carregar QR Code de reconexão:', e)}
                   />
                 </div>

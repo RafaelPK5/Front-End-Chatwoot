@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '../../store/userStore';
 
@@ -21,12 +22,14 @@ export default function AgentLayout({ children }: AgentLayoutProps) {
   return (
     <div className="h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 z-10">
         <div className="flex justify-between items-center px-4 sm:px-6 py-4">
           <div className="flex items-center space-x-3 sm:space-x-4">
-            <img 
+            <Image 
               src="/logo-communica.png" 
               alt="Communica Logo" 
+              width={32}
+              height={32}
               className="h-6 sm:h-8 w-auto"
             />
             <div className="hidden sm:block">
@@ -65,7 +68,7 @@ export default function AgentLayout({ children }: AgentLayoutProps) {
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
@@ -83,9 +86,9 @@ export default function AgentLayout({ children }: AgentLayoutProps) {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden">
         {children}
-      </div>
+      </main>
     </div>
   );
-} 
+}

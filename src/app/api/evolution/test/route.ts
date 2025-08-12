@@ -6,26 +6,25 @@ const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || 'Shilinkert_KeyAdmin'
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔄 Testando conectividade com a Evolution API...');
-    console.log('📍 URL base:', EVOLUTION_API_URL);
-    console.log('🔑 API Key:', EVOLUTION_API_KEY.substring(0, 10) + '...');
-
-    // Testar conectividade básica
-    const testResponse = await fetch(`${EVOLUTION_API_URL}/`, {
+    // Teste básico de conectividade
+    const testResponse = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'apikey': EVOLUTION_API_KEY
       }
     });
 
     if (!testResponse.ok) {
-      throw new Error(`Erro na conectividade: ${testResponse.status} ${testResponse.statusText}`);
+      return NextResponse.json(
+        { error: 'Erro na conectividade básica com a Evolution API' },
+        { status: testResponse.status }
+      );
     }
 
     const testData = await testResponse.json();
-    console.log('✅ Conectividade básica OK:', testData);
 
-    // Testar endpoint de instâncias
+    // Teste específico do endpoint de instâncias
     const instancesResponse = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
       method: 'GET',
       headers: {
@@ -35,36 +34,26 @@ export async function GET(request: NextRequest) {
     });
 
     if (!instancesResponse.ok) {
-      const errorText = await instancesResponse.text();
-      console.error('❌ Erro no endpoint de instâncias:', errorText);
-      return NextResponse.json({
-        success: false,
-        connectivity: true,
-        instances: false,
-        error: `Erro no endpoint de instâncias: ${instancesResponse.status} ${instancesResponse.statusText}`
-      });
+      return NextResponse.json(
+        { error: 'Erro no endpoint de instâncias da Evolution API' },
+        { status: instancesResponse.status }
+      );
     }
 
     const instancesData = await instancesResponse.json();
-    console.log('✅ Endpoint de instâncias OK:', instancesData);
 
     return NextResponse.json({
       success: true,
-      connectivity: true,
-      instances: true,
-      testData,
-      instancesData
+      message: 'Teste de conectividade com a Evolution API realizado com sucesso',
+      data: {
+        basicConnectivity: testData,
+        instances: instancesData
+      }
     });
 
   } catch (error: any) {
-    console.error('❌ Erro no teste da Evolution API:', error);
     return NextResponse.json(
-      { 
-        success: false,
-        connectivity: false,
-        instances: false,
-        error: error.message 
-      },
+      { error: 'Erro interno do servidor' },
       { status: 500 }
     );
   }

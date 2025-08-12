@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { useRouter, usePathname } from 'next/navigation';
 import { useUserStore } from '../../store/userStore';
 
 interface SidebarProps {
@@ -12,7 +13,32 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, logout } = useUserStore();
   const router = useRouter();
+  const pathname = usePathname();
   const [activeSection, setActiveSection] = useState('dashboard');
+
+  // Detectar a rota atual e definir o item ativo
+  useEffect(() => {
+    const currentPath = pathname;
+    
+    // Mapear as rotas para os IDs dos itens do menu
+    if (currentPath === '/admin') {
+      setActiveSection('dashboard');
+    } else if (currentPath === '/admin/agents') {
+      setActiveSection('agents');
+    } else if (currentPath === '/admin/inboxes') {
+      setActiveSection('inboxes');
+    } else if (currentPath === '/admin/teams') {
+      setActiveSection('teams');
+    } else if (currentPath === '/admin/automations') {
+      setActiveSection('automations');
+    } else if (currentPath === '/admin/assignments') {
+      setActiveSection('assignments');
+    } else if (currentPath === '/admin/settings') {
+      setActiveSection('settings');
+    } else {
+      setActiveSection('dashboard');
+    }
+  }, [pathname]);
 
   const handleLogout = () => {
     logout();
@@ -137,12 +163,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         w-64
       `}>
         {/* Header do Sidebar */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">
             <div className="flex items-center">
-              <img 
+              <Image 
                 src="/logo-communica.png" 
                 alt="Communica Logo" 
+                width={32}
+                height={32}
                 className="h-8 w-auto"
               />
             </div>

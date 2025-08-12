@@ -1,457 +1,672 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef } from 'react';
 import { useUserStore } from '../../store/userStore';
-import { getConversations, getConversation, sendMessage, testConversationsAPI } from '../../lib/api/chatwootAPI';
-import AgentLayout from './AgentLayout';
+import { Conversation, Message, getConversations, getConversation, sendMessage, updateConversationStatus, assignConversation, getCannedResponses, CannedResponse } from '../../lib/api/chatwootAPI';
+import { getUserSpecificTeams, getConversationsByTeam } from '../../lib/api/chatwootAPI';
 import ConversationItem from './ConversationItem';
 import MessageBubble from './MessageBubble';
-import UserPermissionsInfo from './UserPermissionsInfo';
-import ConversationStats from './ConversationStats';
-
-export interface Conversation {
-  id: number;
-  inbox_id: number;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  contact: {
-    id: number;
-    name: string;
-    email: string;
-    phone_number: string;
-  };
-  messages: Message[];
-  last_message?: {
-    content: string;
-    created_at: string;
-  };
-  team_id?: number;
-  assignee_id?: number;
-}
-
-interface Message {
-  id: number;
-  content: string;
-  message_type: number;
-  created_at: string;
-  sender: {
-    id: number;
-    name: string;
-    type: string;
-  };
-}
+import SystemMessageTag from './SystemMessageTag';
+import ConversationActions from './ConversationActions';
+import ConversationLabels from './ConversationLabels';
+import ContactManagementModal from './ContactManagementModal';
+import ConnectionStatus from './ConnectionStatus';
+import { useRealTimeMessages } from '../../hooks/useRealTimeMessages';
+import { useWebSocketMessages } from '../../hooks/useWebSocketMessages';
 
 export default function AgentConversations() {
   const { user } = useUserStore();
-  const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [showConversationList, setShowConversationList] = useState(true);
-  const [userPermissions, setUserPermissions] = useState<any>(null);
-  const [conversationStats, setConversationStats] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'assigned' | 'team'>('assigned');
+  const [userTeams, setUserTeams] = useState<any[]>([]);
+  const [teamConversations, setTeamConversations] = useState<Conversation[]>([]);
+  const [loadingTeamConversations, setLoadingTeamConversations] = useState(false);
+  const [cannedResponses, setCannedResponses] = useState<CannedResponse[]>([]);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [filteredShortcuts, setFilteredShortcuts] = useState<CannedResponse[]>([]);
+  const [selectedShortcutIndex, setSelectedShortcutIndex] = useState(0);
+  const [shortcutQuery, setShortcutQuery] = useState('');
+  const [showContactModal, setShowContactModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Hook para mensagens em tempo real
+  const { messages: realTimeMessages, addMessage } = useRealTimeMessages({
+    conversationId: selectedConversation?.id,
+    enabled: !!selectedConversation?.id
+  });
+  const { isConnected } = useWebSocketMessages({ conversationId: selectedConversation?.id, enabled: !!selectedConversation?.id });
+
+  // Função para verificar se uma mensagem é do sistema
+  const isSystemMessage = (message: Message): boolean => {
+    return message.message_type === 2 || message.content_type === 'text' && message.content.startsWith('**');
+  };
+
+  // Função para scroll automático para o final
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Efeito para scroll automático quando novas mensagens chegam
   useEffect(() => {
-    const fetchConversations = async () => {
-      if (!user?.auth_token) return;
+    scrollToBottom();
+  }, [messages, realTimeMessages]);
+
+  // Efeito para lidar com novas mensagens em tempo real
+  useEffect(() => {
+    const handleNewMessages = (event: CustomEvent) => {
+      const { conversationId, messages: newMessages } = event.detail;
       
-      try {
-        setLoading(true);
-        console.log('🔄 Buscando conversas para o usuário:', user.id);
+      if (conversationId === selectedConversation?.id) {
+        // Filtrar apenas mensagens que não são do sistema
+        const nonSystemMessages = newMessages.filter((msg: Message) => !isSystemMessage(msg));
         
-        // Usar a função simples de buscar conversas
-        const data = await getConversations(user.auth_token);
-        console.log('🔍 Estrutura completa da resposta:', data);
-        console.log('🔍 Tipos de dados:', {
-          dataType: typeof data,
-          isArray: Array.isArray(data),
-          keys: data ? Object.keys(data) : 'null/undefined'
-        });
-        
-        // Processar dados das conversas seguindo o mesmo padrão do AdminDashboard
-        let conversationsArray = [];
-        if (Array.isArray(data)) {
-          conversationsArray = data;
-        } else if (data && typeof data === 'object') {
-          conversationsArray = data.data?.payload || data.payload || data.data || data.conversations || [];
+        if (nonSystemMessages.length > 0) {
+          setMessages(prev => {
+            const existingIds = new Set(prev.map(m => m.id));
+            const uniqueNewMessages = nonSystemMessages.filter((msg: Message) => !existingIds.has(msg.id));
+            return [...prev, ...uniqueNewMessages];
+          });
+
+          // Atualizar a lista de conversas para mostrar a última mensagem
+          if (newMessages.length > 0) {
+            setConversations(prev => prev.map(conv => 
+              conv.id === conversationId 
+                ? { 
+                    ...conv, 
+                    last_message: { 
+                      content: newMessages[newMessages.length - 1].content, 
+                      created_at: newMessages[newMessages.length - 1].created_at 
+                    } 
+                  }
+                : conv
+            ));
+          }
         }
-        
-        if (!Array.isArray(conversationsArray)) {
-          console.warn('⚠️ Dados de conversas não são um array:', conversationsArray);
-          conversationsArray = [];
-        }
-        
-        setConversations(conversationsArray);
-        
-        console.log('✅ Conversas carregadas:', {
-          total: conversationsArray.length,
-          conversations: conversationsArray.length
-        });
-      } catch (err) {
-        console.error('❌ Erro ao carregar conversas:', err);
-        setError('Erro ao carregar conversas. Tente novamente.');
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchConversations();
+    window.addEventListener('newMessages', handleNewMessages as EventListener);
     
-    // Atualizar conversas a cada 30 segundos
-    const interval = setInterval(fetchConversations, 30000);
-    return () => clearInterval(interval);
-  }, [user?.auth_token, user?.id]);
+    return () => {
+      window.removeEventListener('newMessages', handleNewMessages as EventListener);
+    };
+  }, [selectedConversation?.id, addMessage, realTimeMessages]);
+
+  const getContactDisplayInfo = (conversation: Conversation | null) => {
+    if (!conversation) return { name: 'Selecione uma conversa', status: 'offline' };
+    
+    const contact = conversation.contact;
+    if (!contact) return { name: 'Contato desconhecido', status: 'offline' };
+    
+    return {
+      name: contact.name || contact.email || contact.phone_number || 'Contato sem nome',
+      status: conversation.contact_last_seen_at ? 'online' : 'offline'
+    };
+  };
+
+  const fetchConversations = async () => {
+    if (!user?.auth_token) return;
+
+    try {
+      setLoading(true);
+      const conversationsData = await getConversations(user.auth_token);
+      
+      // Filtrar apenas conversas atribuídas ao agente logado
+      const assignedConversations = conversationsData.filter((conversation: Conversation) => {
+        const isAssignedToCurrentAgent = conversation.agent?.id === user.id || conversation.assignee_id === user.id;
+        console.log(`🔍 Conversa ${conversation.id}: agent_id = ${conversation.agent?.id}, assignee_id = ${conversation.assignee_id}, user_id = ${user.id}, atribuída ao agente = ${isAssignedToCurrentAgent}`);
+        return isAssignedToCurrentAgent;
+      });
+      
+      console.log(`📊 Conversas atribuídas ao agente ${user.id}: ${assignedConversations.length} de ${conversationsData.length} total`);
+      setConversations(assignedConversations);
+      setError(null);
+    } catch (err: any) {
+      console.error('Erro ao buscar conversas:', err);
+      setError('Erro ao carregar conversas. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Função para buscar times do usuário
+  const fetchUserTeams = async () => {
+    if (!user?.auth_token || !user?.id) return;
+
+    try {
+      const teams = await getUserSpecificTeams(user.auth_token, user.id);
+      setUserTeams(teams);
+    } catch (err: any) {
+      console.error('Erro ao buscar times do usuário:', err);
+    }
+  };
+
+  // Função para buscar conversas do time
+  const fetchTeamConversations = async () => {
+    if (!user?.auth_token || userTeams.length === 0) return;
+
+    try {
+      setLoadingTeamConversations(true);
+      
+      // Buscar conversas de todos os times do usuário em uma única requisição
+      const allTeamConversations: Conversation[] = [];
+      
+      for (const team of userTeams) {
+        try {
+          console.log(`🔍 Buscando conversas do time: ${team.name} (ID: ${team.id})`);
+          
+          // Usar o team_id específico na query - CORRIGIDO
+          const teamConversationsData = await getConversationsByTeam(user.auth_token, team.id, 'open');
+          const teamConversations = teamConversationsData.conversations || [];
+          
+          console.log(`📊 Encontradas ${teamConversations.length} conversas não atribuídas no time ${team.name}`);
+          
+          // Adicionar conversas deste time
+          allTeamConversations.push(...teamConversations);
+        } catch (err) {
+          console.error(`Erro ao buscar conversas do time ${team.name}:`, err);
+        }
+      }
+      
+      // Remover duplicatas baseado no ID da conversa
+      const uniqueConversations = allTeamConversations.filter((conv, index, self) => 
+        index === self.findIndex(c => c.id === conv.id)
+      );
+      
+      console.log(`📊 Total de conversas únicas do time: ${uniqueConversations.length}`);
+      setTeamConversations(uniqueConversations);
+      setError(null);
+    } catch (err: any) {
+      console.error('Erro ao buscar conversas do time:', err);
+      setError('Erro ao carregar conversas do time. Tente novamente.');
+    } finally {
+      setLoadingTeamConversations(false);
+    }
+  };
 
   const handleConversationClick = async (conversation: Conversation) => {
     if (!user?.auth_token) return;
-    
+
     try {
-      console.log('🔄 Carregando detalhes da conversa:', conversation.id);
-      const detailedConversation = await getConversation(user.auth_token, conversation.id);
-      setSelectedConversation(detailedConversation.payload);
-      setShowConversationList(false); // Em mobile, esconde a lista
+      setSelectedConversation(conversation);
+      setMessages([]);
+      setNewMessage('');
+      setShowShortcuts(false);
+      
+      // Buscar mensagens da conversa
+      const conversationData = await getConversation(user.auth_token, conversation.id);
+      const conversationMessages = conversationData.messages || [];
+      
+      // Filtrar apenas mensagens que não são do sistema
+      const nonSystemMessages = conversationMessages.filter((msg: Message) => !isSystemMessage(msg));
+      
+      setMessages(nonSystemMessages);
+      
+      // Scroll para o final após carregar as mensagens
+      setTimeout(scrollToBottom, 100);
+    } catch (err: any) {
+      console.error('Erro ao carregar conversa:', err);
+      setError('Erro ao carregar conversa. Tente novamente.');
+    }
+  };
+
+  // Função para atribuir automaticamente uma conversa
+  const autoAssignConversation = async (conversationId: number) => {
+    if (!user?.auth_token || !user?.id) return;
+
+    try {
+      console.log(`🤖 Atribuindo conversa ${conversationId} automaticamente ao agente ${user.id}`);
+      await assignConversation(user.auth_token, conversationId, user.id);
+      
+      // Atualizar a conversa localmente
+      setConversations(prev => prev.map(conv => 
+        conv.id === conversationId 
+          ? { ...conv, assignee_id: user.id, agent: { id: user.id, name: user.name, email: user.email } }
+          : conv
+      ));
+      
+      // Se a conversa selecionada foi atribuída, atualizar também
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(prev => prev ? { 
+          ...prev, 
+          assignee_id: user.id, 
+          agent: { id: user.id, name: user.name, email: user.email } 
+        } : null);
+      }
+      
+      console.log(`✅ Conversa ${conversationId} atribuída com sucesso`);
     } catch (err) {
-      console.error('❌ Erro ao carregar detalhes da conversa:', err);
-      setError('Erro ao carregar detalhes da conversa');
+      console.error(`❌ Erro ao atribuir conversa ${conversationId}:`, err);
     }
   };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !user?.auth_token) return;
-    
-    setSendingMessage(true);
+
+    const messageToSend = newMessage.trim();
+    setNewMessage('');
+
     try {
-      console.log('🔄 Enviando mensagem real...');
-      
-      // Enviar mensagem real através da API
-      const response = await sendMessage(user.auth_token, selectedConversation.id, {
-        content: newMessage,
-        message_type: 1, // 1 = outgoing (mensagem do agente)
-        private: false
-      });
-      
-      console.log('✅ Mensagem enviada com sucesso:', response);
-      
-      // Criar mensagem local para atualizar a interface
+      // Criar objeto de mensagem temporário para exibição imediata
       const newMessageObj: Message = {
-        id: response.id || Date.now(),
-        content: newMessage,
-        message_type: 1,
+        id: Date.now(), // ID temporário
+        conversation_id: selectedConversation.id,
+        message_type: 1, // outgoing
+        content: messageToSend,
+        content_type: 'text',
+        private: false,
+        source: 'web',
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         sender: {
           id: user.id,
           name: user.name,
+          email: user.email,
           type: 'agent'
         }
       };
 
-      // Atualizar a conversa selecionada com a nova mensagem
-      setSelectedConversation(prev => prev ? {
-        ...prev,
-        messages: [...prev.messages, newMessageObj]
-      } : null);
+      // Adicionar mensagem localmente
+      addMessage(newMessageObj);
 
       // Atualizar a lista de conversas para mostrar a última mensagem
       setConversations(prev => prev.map(conv => 
         conv.id === selectedConversation.id 
-          ? { ...conv, last_message: { content: newMessage, created_at: new Date().toISOString() } }
+          ? { ...conv, last_message: { content: messageToSend, created_at: new Date().toISOString() } }
           : conv
       ));
 
+      // Enviar mensagem para o servidor
+      await sendMessage(user.auth_token, selectedConversation.id, { content: messageToSend });
+      
       setNewMessage('');
     } catch (err) {
-      console.error('❌ Erro ao enviar mensagem:', err);
+      console.error('Erro ao enviar mensagem:', err);
       setError('Erro ao enviar mensagem. Tente novamente.');
-    } finally {
-      setSendingMessage(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  // Função para atualizar status da conversa
+  const handleStatusChange = async (conversationId: number, newStatus: string) => {
+    if (!user?.auth_token) return;
+
+    try {
+      // Atribuir automaticamente a conversa se ela não estiver atribuída ao agente
+      const conversation = conversations.find(c => c.id === conversationId) || 
+                          teamConversations.find(c => c.id === conversationId);
+      
+      if (conversation && (!conversation.agent || conversation.agent.id !== user.id)) {
+        await autoAssignConversation(conversationId);
+      }
+
+      await updateConversationStatus(user.auth_token, conversationId, newStatus as 'open' | 'resolved' | 'pending');
+      
+      // Atualizar a conversa localmente
+      setConversations(prev => prev.map(conv => 
+        conv.id === conversationId 
+          ? { ...conv, status: newStatus as 'open' | 'resolved' | 'pending' }
+          : conv
+      ));
+
+      // Se a conversa selecionada foi atualizada, atualizar também
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(prev => prev ? { ...prev, status: newStatus as 'open' | 'resolved' | 'pending' } : null);
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar status da conversa:', err);
+      setError('Erro ao atualizar status da conversa. Tente novamente.');
+    }
+  };
+
+  useEffect(() => {
+    fetchConversations();
+    fetchUserTeams();
+    fetchCannedResponses(); // Carregar canned responses
+    
+    // Remover o intervalo de recarregamento automático - não é necessário com mensagens em tempo real
+    // const interval = setInterval(fetchConversations, 30000);
+    // return () => clearInterval(interval);
+  }, [user?.auth_token]);
+
+  // Efeito para buscar conversas do time quando os times são carregados OU quando a aba muda para 'team'
+  useEffect(() => {
+    if (activeTab === 'team' && userTeams.length > 0) {
+      console.log('🔄 Aba Time ativada, buscando conversas...');
+      fetchTeamConversations();
+    }
+  }, [activeTab, userTeams]);
+
+  // Função para buscar canned responses
+  const fetchCannedResponses = async () => {
+    if (!user?.auth_token) return;
+
+    try {
+      const responses = await getCannedResponses(user.auth_token);
+      setCannedResponses(responses);
+      console.log('✅ Canned responses carregadas:', responses.length);
+    } catch (error) {
+      console.error('❌ Erro ao carregar canned responses:', error);
+    }
+  };
+
+  // Função para detectar e processar shortcuts
+  const handleShortcutDetection = (text: string) => {
+    if (text.startsWith('/')) {
+      const query = text.slice(1).toLowerCase(); // Remove o '/' e converte para minúsculas
+      setShortcutQuery(query);
+      
+      if (query.length > 0) {
+        // Filtrar canned responses que correspondem à query
+        const filtered = cannedResponses.filter(response => 
+          response.short_code.toLowerCase().includes(query) || 
+          response.content.toLowerCase().includes(query)
+        );
+        
+        setFilteredShortcuts(filtered);
+        setShowShortcuts(filtered.length > 0);
+        setSelectedShortcutIndex(0);
+      } else {
+        setShowShortcuts(false);
+      }
+    } else {
+      setShowShortcuts(false);
+    }
+  };
+
+  // Função para substituir variáveis no conteúdo
+  const replaceVariables = (content: string, conversation: Conversation | null, user: any) => {
+    if (!conversation || !user) return content;
+    
+    return content
+      .replace(/\{contact\.name\}/g, conversation.contact?.name || 'Cliente')
+      .replace(/\{contact\.email\}/g, conversation.contact?.email || '')
+      .replace(/\{agent\.name\}/g, user.name || 'Agente')
+      .replace(/\{conversation\.id\}/g, conversation.id.toString());
+  };
+
+  // Função para aplicar shortcut
+  const applyShortcut = (shortcut: CannedResponse) => {
+    if (!selectedConversation) return;
+    
+    const processedContent = replaceVariables(shortcut.content, selectedConversation, user);
+    setNewMessage(processedContent);
+    setShowShortcuts(false);
+    setFilteredShortcuts([]);
+    setSelectedShortcutIndex(0);
+    
+    // Focar no input após aplicar o shortcut
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+  };
+
+  // Função para navegar pelos shortcuts com teclado
+  const handleShortcutNavigation = (e: React.KeyboardEvent) => {
+    if (!showShortcuts || filteredShortcuts.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedShortcutIndex(prev => 
+          prev < filteredShortcuts.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedShortcutIndex(prev => 
+          prev > 0 ? prev - 1 : filteredShortcuts.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (filteredShortcuts[selectedShortcutIndex]) {
+          applyShortcut(filteredShortcuts[selectedShortcutIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowShortcuts(false);
+        setFilteredShortcuts([]);
+        setSelectedShortcutIndex(0);
+        break;
+    }
+  };
+
+  // Função para lidar com mudanças no input
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setNewMessage(value);
+    handleShortcutDetection(value);
+  };
+
+  // Função para lidar com teclas pressionadas no input
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showShortcuts) {
+      handleShortcutNavigation(e);
+    }
+    
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [selectedConversation?.messages]);
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'open':
-        return 'Aberta';
-      case 'resolved':
-        return 'Resolvida';
-      case 'pending':
-        return 'Pendente';
-      default:
-        return status;
-    }
-  };
-
-  const handlePermissionsLoaded = (permissions: any) => {
-    setUserPermissions(permissions);
-    console.log('✅ Permissões do usuário carregadas:', permissions);
-  };
-
-  const handleStatsLoaded = (stats: any) => {
-    setConversationStats(stats);
-    console.log('✅ Estatísticas carregadas:', stats);
-  };
-
-  const handleTestAPI = async () => {
-    if (!user?.auth_token) return;
-    
-    try {
-      console.log('🧪 Iniciando teste da API de conversas...');
-      const result = await testConversationsAPI(user.auth_token);
-      console.log('✅ Resultado do teste:', result);
-      alert('Teste concluído! Verifique o console para detalhes.');
-    } catch (err) {
-      console.error('❌ Erro no teste da API:', err);
-      alert('Erro no teste da API. Verifique o console para detalhes.');
-    }
-  };
-
-  if (loading) {
-    return (
-      <AgentLayout>
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Carregando suas conversas...</p>
-          </div>
-        </div>
-      </AgentLayout>
-    );
-  }
+  const currentConversations = activeTab === 'assigned' ? conversations : teamConversations;
+  const currentLoading = activeTab === 'assigned' ? loading : loadingTeamConversations;
 
   return (
-    <AgentLayout>
-      <div className="flex h-full">
-        {/* Lista de Conversas - Desktop sempre visível, Mobile condicional */}
-        <div className={`${showConversationList ? 'block' : 'hidden'} sm:block w-full sm:w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col`}>
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="space-y-2">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Buscar conversas..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-                <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              
-              {/* Botão de teste da API */}
-              <button
-                onClick={handleTestAPI}
-                className="w-full px-3 py-2 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                🧪 Testar API
-              </button>
-            </div>
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar com lista de conversas */}
+      <div className="w-1/3 bg-white border-r border-gray-200 flex flex-col">
+        {/* Header */}
+        <div className="p-4 border-b border-gray-200 bg-white">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-semibold text-gray-900">Conversas</h1>
+            <ConnectionStatus isConnected={isConnected} />
           </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {error && (
-              <div className="m-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
-              </div>
-            )}
-
-            {/* Estatísticas das conversas */}
-            <ConversationStats onStatsLoaded={handleStatsLoaded} />
-
-            {/* Informações sobre permissões */}
-            <UserPermissionsInfo onPermissionsLoaded={handlePermissionsLoaded} />
-
-            <div className="space-y-1 p-2">
-              {conversations.length === 0 ? (
-                <div className="text-center py-8">
-                  <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                  </svg>
-                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Nenhuma conversa disponível</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {user?.role === 'administrator' 
-                      ? 'Não há conversas ativas no momento.'
-                      : 'Não há conversas disponíveis no momento.'
-                    }
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {/* Contador de conversas */}
-                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg mb-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {conversations.length} conversa{conversations.length !== 1 ? 's' : ''}
-                      </span>
-                      <div className="flex space-x-1">
-                        {conversations.filter(c => c.status === 'open').length > 0 && (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                            {conversations.filter(c => c.status === 'open').length} aberta{conversations.filter(c => c.status === 'open').length !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                        {conversations.filter(c => c.status === 'pending').length > 0 && (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                            {conversations.filter(c => c.status === 'pending').length} pendente{conversations.filter(c => c.status === 'pending').length !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Lista de conversas */}
-                  {conversations.map((conversation) => (
-                    <ConversationItem
-                      key={conversation.id}
-                      conversation={conversation}
-                      isSelected={selectedConversation?.id === conversation.id}
-                      onClick={handleConversationClick}
-                    />
-                  ))}
-                </>
-              )}
-            </div>
+          
+          {/* Tabs */}
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setActiveTab('assigned')}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'assigned'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Atribuídas ({conversations.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('team')}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'team'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Time ({teamConversations.length})
+            </button>
           </div>
         </div>
 
-        {/* Área de Chat */}
-        <div className={`${!showConversationList ? 'block' : 'hidden'} sm:block flex-1 flex flex-col bg-white`}>
-          {selectedConversation ? (
-            <>
-              {/* Header da Conversa */}
-              <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    {/* Botão voltar para mobile */}
-                    <button
-                      onClick={() => setShowConversationList(true)}
-                      className="sm:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    
-                    <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                      <span className="text-indigo-600 font-medium">
-                        {selectedConversation.contact.name?.charAt(0)?.toUpperCase() || 'C'}
-                      </span>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {selectedConversation.contact.name || 'Cliente'}
-                      </h3>
-                      <div className="flex items-center space-x-2 sm:space-x-4 text-sm text-gray-600">
-                        <span className="hidden sm:inline">{selectedConversation.contact.email || 'Sem email'}</span>
-                        <span>{selectedConversation.contact.phone_number || 'Sem telefone'}</span>
-                        <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                          selectedConversation.status === 'open' ? 'bg-green-100 text-green-800' :
-                          selectedConversation.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
-                          {getStatusText(selectedConversation.status)}
-                        </span>
-                        {selectedConversation.assignee_id === user?.id && (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
-                            Atribuída a você
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="hidden sm:flex items-center space-x-2">
-                    <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Mensagens */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-                {selectedConversation.messages?.map((message) => (
-                  <MessageBubble
-                    key={message.id}
-                    message={message}
-                    isOwnMessage={message.sender.type === 'agent' || message.sender.type === 'administrator'}
-                  />
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input de Mensagem */}
-              <div className="bg-white border-t border-gray-200 p-4">
-                <div className="flex items-end space-x-3">
-                  <div className="flex-1">
-                    <textarea
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      placeholder="Digite sua mensagem..."
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      rows={1}
-                      style={{ minHeight: '44px', maxHeight: '120px' }}
-                    />
-                  </div>
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!newMessage.trim() || sendingMessage}
-                    className="bg-indigo-600 text-white p-3 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {sendingMessage ? (
-                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </>
+        {/* Lista de conversas */}
+        <div className="flex-1 overflow-y-auto">
+          {currentLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+          ) : error ? (
+            <div className="p-4 text-center text-red-600">
+              <p>{error}</p>
+              <button
+                onClick={fetchConversations}
+                className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : currentConversations.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">
+              <p>Nenhuma conversa encontrada.</p>
+            </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Selecione uma conversa</h3>
-                <p className="text-gray-600">
-                  Escolha uma conversa da lista para começar a responder.
-                </p>
-              </div>
+            <div className="space-y-1">
+              {currentConversations.map((conversation) => (
+                <ConversationItem
+                  key={conversation.id}
+                  conversation={conversation}
+                  isSelected={selectedConversation?.id === conversation.id}
+                  onClick={handleConversationClick}
+                />
+              ))}
             </div>
           )}
         </div>
       </div>
-    </AgentLayout>
+
+      {/* Área principal da conversa */}
+      <div className="flex-1 flex flex-col bg-white">
+        {selectedConversation ? (
+          <>
+            {/* Header da conversa */}
+            <div className="p-4 border-b border-gray-200 bg-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-semibold">
+                        {getContactDisplayInfo(selectedConversation).name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      {getContactDisplayInfo(selectedConversation).name}
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      {selectedConversation.contact?.email || selectedConversation.contact?.phone_number || 'Sem contato'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <ConversationActions
+                    conversation={selectedConversation}
+                    onStatusChange={handleStatusChange}
+                  />
+                  <button
+                    onClick={() => setShowContactModal(true)}
+                    className="p-2 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Labels da conversa */}
+              <ConversationLabels conversationId={selectedConversation.id} />
+            </div>
+
+            {/* Área de mensagens */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.length === 0 ? (
+                <div className="text-center text-gray-500 mt-8">
+                  <p>Nenhuma mensagem ainda.</p>
+                  <p className="text-sm">Inicie a conversa enviando uma mensagem.</p>
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <div key={message.id} className="flex flex-col space-y-2">
+                    {isSystemMessage(message) ? (
+                      <SystemMessageTag message={message.content} />
+                    ) : (
+                      <MessageBubble
+                        message={message}
+                        isOwnMessage={message.message_type === 1}
+                      />
+                    )}
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Área de input */}
+            <div className="p-4 border-t border-gray-200 bg-white">
+              {/* Shortcuts */}
+              {showShortcuts && filteredShortcuts.length > 0 && (
+                <div className="mb-2 bg-gray-50 border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
+                  {filteredShortcuts.map((shortcut, index) => (
+                    <div
+                      key={shortcut.id}
+                      onClick={() => applyShortcut(shortcut)}
+                      className={`p-2 cursor-pointer hover:bg-gray-100 ${
+                        index === selectedShortcutIndex ? 'bg-blue-100' : ''
+                      }`}
+                    >
+                      <div className="font-medium text-sm text-gray-900">
+                        /{shortcut.short_code}
+                      </div>
+                      <div className="text-xs text-gray-600 truncate">
+                        {shortcut.content}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <div className="flex space-x-2">
+                <div className="flex-1 relative">
+                  <textarea
+                    ref={inputRef}
+                    value={newMessage}
+                    onChange={handleInputChange}
+                    onKeyDown={handleInputKeyDown}
+                    placeholder="Digite sua mensagem... (use / para shortcuts)"
+                    className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={3}
+                  />
+                </div>
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim()}
+                  className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Enviar
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-gray-500">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhuma conversa selecionada</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Selecione uma conversa da lista para começar.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modal de gerenciamento de contato */}
+      {showContactModal && selectedConversation && (
+        <ContactManagementModal
+          isOpen={showContactModal}
+          onClose={() => setShowContactModal(false)}
+        />
+      )}
+    </div>
   );
-} 
+}

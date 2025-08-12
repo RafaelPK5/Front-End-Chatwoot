@@ -10,14 +10,6 @@ type DashboardChartsProps = {
 export default function DashboardCharts({ agents, conversations, evolutionInstances }: DashboardChartsProps) {
   const { theme } = useTheme();
   
-  // Logs para debug
-  console.log('🔍 DashboardCharts - Dados recebidos:', {
-    agents: agents.length,
-    conversations: conversations.length,
-    evolutionInstances: evolutionInstances.length,
-    evolutionInstancesData: evolutionInstances
-  });
-
   // Conversas respondidas/não respondidas
   const totalConvs = conversations.length;
   const responded = conversations.filter((c: any) => (c.unread_count || 0) === 0).length;
@@ -47,8 +39,6 @@ export default function DashboardCharts({ agents, conversations, evolutionInstan
   ];
 
   // Mensagens (total e não lidas) - Corrigido baseado na estrutura real
-  console.log('🔍 Debug Mensagens - Primeira conversa:', conversations[0]);
-  
   let totalMessages = conversations.reduce((sum: number, conv: any) => {
     // Verificar se tem array de messages ou messages_count
     let messagesCount = 0;
@@ -57,31 +47,21 @@ export default function DashboardCharts({ agents, conversations, evolutionInstan
     } else if (conv.messages_count) {
       messagesCount = conv.messages_count;
     }
-    console.log(`Conversa ${conv.id}: messages = ${messagesCount}`);
     return sum + messagesCount;
   }, 0);
   
   let unreadMessages = conversations.reduce((sum: number, conv: any) => {
     const unreadCount = conv.unread_count || 0;
-    console.log(`Conversa ${conv.id}: unread_count = ${unreadCount}`);
     return sum + unreadCount;
   }, 0);
   
   // Se não há mensagens calculadas, usar dados mockados temporariamente
   let readMessages = totalMessages - unreadMessages;
   if (totalMessages === 0) {
-    console.log('⚠️ Nenhuma mensagem encontrada, usando dados mockados');
     totalMessages = 150; // Mock
     unreadMessages = 25; // Mock
     readMessages = 125; // Mock
   }
-  
-  console.log('🔍 Debug Mensagens - Totais:', {
-    totalMessages,
-    unreadMessages,
-    readMessages,
-    conversations: conversations.length
-  });
   
   const messagesData = [
     { name: 'Lidas', value: readMessages, color: '#10b981' },
@@ -93,15 +73,6 @@ export default function DashboardCharts({ agents, conversations, evolutionInstan
   let disconnectedInstances = 0;
 
   if (evolutionInstances.length > 0) {
-    // Log detalhado da primeira instância para ver a estrutura
-    console.log('🔍 Primeira instância Evolution API:', evolutionInstances[0]);
-    console.log('🔍 Todas as instâncias:', evolutionInstances.map((i: any) => ({
-      instance: i.instance,
-      status: i.status,
-      state: i.state,
-      connectionStatus: i.connectionStatus
-    })));
-
     // Usar dados reais da API - verificar diferentes campos possíveis
     connectedInstances = evolutionInstances.filter((instance: any) => {
       const status = instance.status || instance.state || instance.connectionStatus || '';
@@ -124,22 +95,9 @@ export default function DashboardCharts({ agents, conversations, evolutionInstan
     }).length;
   } else {
     // Fallback para dados mockados quando não há dados reais
-    console.log('⚠️ Usando dados mockados para Evolution API');
     connectedInstances = 3;
     disconnectedInstances = 1;
   }
-  
-  console.log('🔍 Evolution Instances - Status:', {
-    total: evolutionInstances.length,
-    connected: connectedInstances,
-    disconnected: disconnectedInstances,
-    instances: evolutionInstances.map((i: any) => ({ 
-      name: i.instance, 
-      status: i.status,
-      state: i.state,
-      connectionStatus: i.connectionStatus
-    }))
-  });
 
   const evolutionData = [
     { name: 'Conectadas', value: connectedInstances, color: '#10b981' },

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getLabels, createLabel, updateLabel, deleteLabel, Label } from '@/lib/api/chatwootAPI';
 import { useUserStore } from '@/store/userStore';
 
@@ -23,13 +23,7 @@ const LabelsManagement: React.FC = () => {
     '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
   ];
 
-  useEffect(() => {
-    if (user?.auth_token) {
-      fetchLabels();
-    }
-  }, [user?.auth_token]);
-
-  const fetchLabels = async () => {
+  const fetchLabels = useCallback(async () => {
     if (!user?.auth_token) return;
     
     try {
@@ -43,7 +37,13 @@ const LabelsManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.auth_token]);
+
+  useEffect(() => {
+    if (user?.auth_token) {
+      fetchLabels();
+    }
+  }, [fetchLabels, user?.auth_token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,8 +114,8 @@ const LabelsManagement: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gerenciar Marcadores</h2>
-          <p className="text-gray-600">Crie e gerencie labels para organizar conversas</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Gerenciar Marcadores</h2>
+          <p className="text-gray-600 dark:text-gray-400">Crie e gerencie labels para organizar conversas</p>
         </div>
         <button
           onClick={openCreateModal}
@@ -129,7 +129,7 @@ const LabelsManagement: React.FC = () => {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
           {error}
         </div>
       )}
@@ -138,7 +138,7 @@ const LabelsManagement: React.FC = () => {
         {labels.map((label) => (
           <div
             key={label.id}
-            className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-3 flex-1">
@@ -147,15 +147,15 @@ const LabelsManagement: React.FC = () => {
                   style={{ backgroundColor: label.color || '#3B82F6' }}
                 ></div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-gray-900 truncate">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
                     {label.title}
                   </h3>
                   {label.description && (
-                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
                       {label.description}
                     </p>
                   )}
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
                     Criada em {new Date(label.created_at).toLocaleDateString('pt-BR')}
                   </p>
                 </div>
@@ -163,7 +163,7 @@ const LabelsManagement: React.FC = () => {
               <div className="flex space-x-2 ml-4">
                 <button
                   onClick={() => handleEdit(label)}
-                  className="text-blue-600 hover:text-blue-800 p-1"
+                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1"
                   title="Editar"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,7 +172,7 @@ const LabelsManagement: React.FC = () => {
                 </button>
                 <button
                   onClick={() => handleDelete(label.id)}
-                  className="text-red-600 hover:text-red-800 p-1"
+                  className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1"
                   title="Deletar"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,11 +187,11 @@ const LabelsManagement: React.FC = () => {
 
       {labels.length === 0 && !loading && (
         <div className="text-center py-12">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
           </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhuma label encontrada</h3>
-          <p className="mt-1 text-sm text-gray-500">Comece criando sua primeira label.</p>
+          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Nenhuma label encontrada</h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Comece criando sua primeira label.</p>
           <div className="mt-6">
             <button
               onClick={openCreateModal}
@@ -206,41 +206,41 @@ const LabelsManagement: React.FC = () => {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               {editingLabel ? 'Editar Label' : 'Nova Label'}
             </h3>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Título *
                 </label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="Ex: Urgente, Suporte, Vendas"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Descrição
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   placeholder="Descrição opcional da label"
                   rows={3}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Cor
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -250,7 +250,7 @@ const LabelsManagement: React.FC = () => {
                       type="button"
                       onClick={() => setFormData({ ...formData, color })}
                       className={`w-8 h-8 rounded-full border-2 ${
-                        formData.color === color ? 'border-gray-800' : 'border-gray-300'
+                        formData.color === color ? 'border-gray-800 dark:border-gray-200' : 'border-gray-300 dark:border-gray-600'
                       }`}
                       style={{ backgroundColor: color }}
                       title={color}
@@ -261,7 +261,7 @@ const LabelsManagement: React.FC = () => {
                   type="color"
                   value={formData.color}
                   onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                  className="mt-2 w-full h-10 border border-gray-300 rounded-lg"
+                  className="mt-2 w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg"
                 />
               </div>
 
@@ -273,7 +273,7 @@ const LabelsManagement: React.FC = () => {
                     setEditingLabel(null);
                     resetForm();
                   }}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg"
                 >
                   Cancelar
                 </button>

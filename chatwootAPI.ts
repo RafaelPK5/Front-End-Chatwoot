@@ -15,10 +15,10 @@ const createBaseClient = () => {
   });
 };
 
-// Cliente autenticado - usando a rota proxy do Next.js
+// Cliente autenticado - usando a URL direta do Chatwoot
 const createAuthenticatedClient = (token: string) => {
   return axios.create({
-    baseURL: '/api/chatwoot',
+    baseURL: `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}`,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       'Authorization': `Bearer ${token}`,
@@ -67,97 +67,6 @@ export interface User {
   role: 'administrator' | 'agent';
   account_id: number;
   auth_token: string;
-}
-
-// Interface para Conversation
-export interface Conversation {
-  id: number;
-  inbox_id: number;
-  status: 'open' | 'resolved' | 'pending';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  title?: string;
-  assignee_id?: number;
-  team_id?: number;
-  contact_id?: number;
-  contact_inbox_id?: number;
-  created_at: string;
-  updated_at: string;
-  last_activity_at: string;
-  contact_last_seen_at?: string;
-  custom_attributes?: Record<string, any>;
-  labels?: string[];
-  messages_count?: number;
-  unread_count?: number;
-  last_message?: {
-    content: string;
-    created_at: string;
-  };
-  contact?: {
-    id: number;
-    name: string;
-    email?: string;
-    phone_number?: string;
-    avatar_url?: string;
-  };
-  inbox?: {
-    id: number;
-    name: string;
-    channel_type: string;
-  };
-  assignee?: {
-    id: number;
-    name: string;
-    email: string;
-  };
-  agent?: {
-    id: number;
-    name: string;
-    email: string;
-    avatar_url?: string;
-  };
-  team?: {
-    id: number;
-    name: string;
-  };
-}
-
-// Interface para Message
-export interface Message {
-  id: number;
-  conversation_id: number;
-  message_type: number; // 0 = incoming, 1 = outgoing
-  content: string;
-  content_type: string;
-  content_attributes?: Record<string, any>;
-  private: boolean;
-  source: string;
-  created_at: string;
-  updated_at: string;
-  sender?: {
-    id: number;
-    name: string;
-    email: string;
-    type: 'contact' | 'agent';
-  };
-  attachments?: Array<{
-    id: number;
-    file_name: string;
-    content_type: string;
-    file_size: number;
-    url: string;
-  }>;
-}
-
-// Interface para Contact
-export interface Contact {
-  id: number;
-  name: string;
-  email?: string;
-  phone_number?: string;
-  avatar_url?: string;
-  created_at: string;
-  updated_at: string;
-  custom_attributes?: Record<string, any>;
 }
 
 // Testar conectividade da API
@@ -346,11 +255,11 @@ export const getAgents = async (token: string) => {
 export const getAccountStats = async (token: string) => {
   try {
     console.log('🔄 Iniciando busca de estatísticas...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/account`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/account`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.get(`/api/v1/accounts/${ACCOUNT_ID}/account`);
+    const response = await apiClient.get('/account');
     
     console.log('✅ Resposta das estatísticas recebida:', response.data);
     return response.data;
@@ -364,11 +273,11 @@ export const getAccountStats = async (token: string) => {
 export const getConversation = async (token: string, conversationId: number) => {
   try {
     console.log('🔄 Iniciando busca de conversa específica...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.get(`/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}`);
+    const response = await apiClient.get(`/conversations/${conversationId}`);
     
     console.log('✅ Resposta da conversa recebida:', response.data);
     return response.data;
@@ -473,12 +382,12 @@ export const createInbox = async (token: string, inboxData: {
 }) => {
   try {
     console.log('🔄 Criando novo inbox...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/inboxes`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/inboxes`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Dados do inbox:', inboxData);
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/inboxes`, inboxData);
+    const response = await apiClient.post('/inboxes', inboxData);
     
     console.log('✅ Inbox criado com sucesso:', response.data);
     return response.data;
@@ -495,12 +404,12 @@ export const updateInbox = async (token: string, inboxId: number, inboxData: {
 }) => {
   try {
     console.log('🔄 Atualizando inbox...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/inboxes/${inboxId}`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/inboxes/${inboxId}`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Dados do inbox:', inboxData);
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.put(`/api/v1/accounts/${ACCOUNT_ID}/inboxes/${inboxId}`, inboxData);
+    const response = await apiClient.put(`/inboxes/${inboxId}`, inboxData);
     
     console.log('✅ Inbox atualizado com sucesso:', response.data);
     return response.data;
@@ -514,11 +423,11 @@ export const updateInbox = async (token: string, inboxId: number, inboxData: {
 export const deleteInbox = async (token: string, inboxId: number) => {
   try {
     console.log('🔄 Deletando inbox...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/inboxes/${inboxId}`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/inboxes/${inboxId}`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.delete(`/api/v1/accounts/${ACCOUNT_ID}/inboxes/${inboxId}`);
+    const response = await apiClient.delete(`/inboxes/${inboxId}`);
     
     console.log('✅ Inbox deletado com sucesso:', response.data);
     return response.data;
@@ -537,12 +446,12 @@ export const createAgent = async (token: string, agentData: {
 }) => {
   try {
     console.log('🔄 Criando novo agente...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/agents`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/agents`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Dados do agente:', { ...agentData, password: '***' });
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/agents`, agentData);
+    const response = await apiClient.post('/agents', agentData);
     
     console.log('✅ Agente criado com sucesso:', response.data);
     return response.data;
@@ -561,12 +470,12 @@ export const updateAgent = async (token: string, agentId: number, agentData: {
 }) => {
   try {
     console.log('🔄 Atualizando agente...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/agents/${agentId}`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/agents/${agentId}`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Dados do agente:', { ...agentData, password: agentData.password ? '***' : undefined });
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.put(`/api/v1/accounts/${ACCOUNT_ID}/agents/${agentId}`, agentData);
+    const response = await apiClient.put(`/agents/${agentId}`, agentData);
     
     console.log('✅ Agente atualizado com sucesso:', response.data);
     return response.data;
@@ -580,11 +489,11 @@ export const updateAgent = async (token: string, agentId: number, agentData: {
 export const deleteAgent = async (token: string, agentId: number) => {
   try {
     console.log('🔄 Deletando agente...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/agents/${agentId}`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/agents/${agentId}`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.delete(`/api/v1/accounts/${ACCOUNT_ID}/agents/${agentId}`);
+    const response = await apiClient.delete(`/agents/${agentId}`);
     
     console.log('✅ Agente deletado com sucesso:', response.data);
     return response.data;
@@ -592,7 +501,7 @@ export const deleteAgent = async (token: string, agentId: number) => {
     console.error('❌ Erro ao deletar agente:', error);
     throw error;
   }
-};
+}; 
 
 // Criar novo inbox via N8N workflow
 export const createInboxViaN8N = async (token: string, inboxData: {
@@ -767,12 +676,12 @@ export const createTeam = async (token: string, teamData: {
 }) => {
   try {
     console.log('🔄 Criando novo time...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/teams`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/teams`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Dados do time:', teamData);
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/teams`, teamData);
+    const response = await apiClient.post('/teams', teamData);
     
     console.log('✅ Time criado com sucesso:', response.data);
     return response.data;
@@ -789,12 +698,12 @@ export const updateTeam = async (token: string, teamId: number, teamData: {
 }) => {
   try {
     console.log('🔄 Atualizando time...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Dados do time:', teamData);
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.put(`/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}`, teamData);
+    const response = await apiClient.put(`/teams/${teamId}`, teamData);
     
     console.log('✅ Time atualizado com sucesso:', response.data);
     return response.data;
@@ -808,11 +717,11 @@ export const updateTeam = async (token: string, teamId: number, teamData: {
 export const deleteTeam = async (token: string, teamId: number) => {
   try {
     console.log('🔄 Deletando time...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.delete(`/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}`);
+    const response = await apiClient.delete(`/teams/${teamId}`);
     
     console.log('✅ Time deletado com sucesso:', response.data);
     return response.data;
@@ -826,11 +735,11 @@ export const deleteTeam = async (token: string, teamId: number) => {
 export const getTeamMembers = async (token: string, teamId: number) => {
   try {
     console.log('🔄 Buscando membros do time...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}/agents`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}/agents`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.get(`/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}/agents`);
+    const response = await apiClient.get(`/teams/${teamId}/agents`);
     
     console.log('✅ Membros do time recebidos:', response.data);
     return response.data;
@@ -844,11 +753,11 @@ export const getTeamMembers = async (token: string, teamId: number) => {
 export const addAgentToTeam = async (token: string, teamId: number, agentId: number) => {
   try {
     console.log('🔄 Adicionando agente ao time...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}/agents`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}/agents`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}/agents`, { agent_id: agentId });
+    const response = await apiClient.post(`/teams/${teamId}/agents`, { agent_id: agentId });
     
     console.log('✅ Agente adicionado ao time com sucesso:', response.data);
     return response.data;
@@ -862,11 +771,11 @@ export const addAgentToTeam = async (token: string, teamId: number, agentId: num
 export const removeAgentFromTeam = async (token: string, teamId: number, agentId: number) => {
   try {
     console.log('🔄 Removendo agente do time...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}/agents/${agentId}`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}/agents/${agentId}`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.delete(`/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}/agents/${agentId}`);
+    const response = await apiClient.delete(`/teams/${teamId}/agents/${agentId}`);
     
     console.log('✅ Agente removido do time com sucesso:', response.data);
     return response.data;
@@ -882,11 +791,11 @@ export const removeAgentFromTeam = async (token: string, teamId: number, agentId
 export const getUserPermissions = async (token: string, userId: number) => {
   try {
     console.log('🔄 Buscando permissões do usuário...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/agents/${userId}`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/agents/${userId}`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.get(`/api/v1/accounts/${ACCOUNT_ID}/agents/${userId}`);
+    const response = await apiClient.get(`/agents/${userId}`);
     
     console.log('✅ Permissões do usuário recebidas:', response.data);
     return response.data;
@@ -907,11 +816,11 @@ export const getUserPermissions = async (token: string, userId: number) => {
 export const getUserInboxes = async (token: string, userId: number) => {
   try {
     console.log('🔄 Buscando inboxes do usuário...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/agents/${userId}/inboxes`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/agents/${userId}/inboxes`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.get(`/api/v1/accounts/${ACCOUNT_ID}/agents/${userId}/inboxes`);
+    const response = await apiClient.get(`/agents/${userId}/inboxes`);
     
     console.log('✅ Inboxes do usuário recebidos:', response.data);
     return response.data;
@@ -933,11 +842,11 @@ export const getUserInboxes = async (token: string, userId: number) => {
 export const getUserTeams = async (token: string, userId: number) => {
   try {
     console.log('🔄 Buscando times do usuário...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/agents/${userId}/teams`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/agents/${userId}/teams`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.get(`/api/v1/accounts/${ACCOUNT_ID}/agents/${userId}/teams`);
+    const response = await apiClient.get(`/agents/${userId}/teams`);
     
     console.log('✅ Times do usuário recebidos:', response.data);
     return response.data;
@@ -1062,12 +971,12 @@ export const sendMessage = async (token: string, conversationId: number, message
 }) => {
   try {
     console.log('🔄 Enviando mensagem...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/messages`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/messages`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Dados da mensagem:', { ...messageData, content: messageData.content.substring(0, 50) + '...' });
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/messages`, {
+    const response = await apiClient.post(`/conversations/${conversationId}/messages`, {
       content: messageData.content,
       message_type: messageData.message_type || 0, // 0 = incoming, 1 = outgoing
       private: messageData.private || false
@@ -1085,11 +994,11 @@ export const sendMessage = async (token: string, conversationId: number, message
 export const getMessages = async (token: string, conversationId: number) => {
   try {
     console.log('🔄 Buscando mensagens da conversa...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/messages`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/messages`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.get(`/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/messages`);
+    const response = await apiClient.get(`/conversations/${conversationId}/messages`);
     
     console.log('✅ Mensagens recebidas:', response.data);
     return response.data;
@@ -1151,12 +1060,12 @@ export const getConversationCounts = async (token: string) => {
 export const updateConversationStatus = async (token: string, conversationId: number, status: 'open' | 'resolved' | 'pending') => {
   try {
     console.log('🔄 Atualizando status da conversa...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/toggle_status`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/toggle_status`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Novo status:', status);
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/toggle_status`, {
+    const response = await apiClient.post(`/conversations/${conversationId}/toggle_status`, {
       status: status
     });
     
@@ -1172,12 +1081,12 @@ export const updateConversationStatus = async (token: string, conversationId: nu
 export const updateConversationPriority = async (token: string, conversationId: number, priority: 'low' | 'medium' | 'high' | 'urgent') => {
   try {
     console.log('🔄 Atualizando prioridade da conversa...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/toggle_priority`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/toggle_priority`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Nova prioridade:', priority);
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/toggle_priority`, {
+    const response = await apiClient.post(`/conversations/${conversationId}/toggle_priority`, {
       priority: priority
     });
     
@@ -1193,12 +1102,12 @@ export const updateConversationPriority = async (token: string, conversationId: 
 export const updateConversationCustomAttributes = async (token: string, conversationId: number, customAttributes: Record<string, any>) => {
   try {
     console.log('🔄 Atualizando atributos customizados...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/custom_attributes`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/custom_attributes`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Atributos:', customAttributes);
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/custom_attributes`, {
+    const response = await apiClient.post(`/conversations/${conversationId}/custom_attributes`, {
       custom_attributes: customAttributes
     });
     
@@ -1334,12 +1243,12 @@ export const deleteLabel = async (token: string, labelId: number): Promise<void>
 export const addLabelsToConversation = async (token: string, conversationId: number, labels: string[]) => {
   try {
     console.log('🔄 Adicionando labels à conversa...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/labels`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/labels`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Labels:', labels);
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/labels`, {
+    const response = await apiClient.post(`/conversations/${conversationId}/labels`, {
       labels: labels
     });
     
@@ -1357,12 +1266,12 @@ export const addLabelsToConversation = async (token: string, conversationId: num
 export const assignConversation = async (token: string, conversationId: number, agentId: number) => {
   try {
     console.log('🔄 Atribuindo conversa ao agente...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/assignments`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/assignments`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     console.log('📝 Agente ID:', agentId);
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/assignments`, {
+    const response = await apiClient.post(`/conversations/${conversationId}/assignments`, {
       assignee_id: agentId
     });
     
@@ -1378,11 +1287,11 @@ export const assignConversation = async (token: string, conversationId: number, 
 export const unassignConversation = async (token: string, conversationId: number) => {
   try {
     console.log('🔄 Removendo atribuição da conversa...');
-    console.log('📍 URL de destino:', `/api/chatwoot/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/assignments`);
+    console.log('📍 URL de destino:', `${CHATWOOT_API_URL}/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/assignments`);
     console.log('🔑 Token usado:', token.substring(0, 10) + '...');
     
     const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.delete(`/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/assignments`);
+    const response = await apiClient.delete(`/conversations/${conversationId}/assignments`);
     
     console.log('✅ Atribuição removida com sucesso:', response.data);
     return response.data;
@@ -1741,205 +1650,5 @@ export const deleteCannedResponse = async (token: string, cannedResponseId: numb
   } catch (error: any) {
     console.error('❌ Erro ao deletar resposta rápida:', error.message);
     throw new Error(`Erro ao deletar resposta rápida: ${error.message}`);
-  }
-};
-
-// ===== FUNÇÕES FALTANDO =====
-
-// Função para logout de instância da Evolution API
-export const logoutEvolutionInstance = async (token: string, instanceName: string) => {
-  try {
-    console.log('🔄 Fazendo logout da instância da Evolution API:', instanceName);
-    
-    const response = await fetch('/api/evolution/logout', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api_access_token': token
-      },
-      body: JSON.stringify({ instanceName })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro ao fazer logout: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('✅ Logout realizado com sucesso:', data);
-    return data;
-  } catch (error) {
-    console.error('❌ Erro ao fazer logout da instância:', error);
-    throw error;
-  }
-};
-
-// Função para buscar times específicos do usuário
-export const getUserSpecificTeams = async (token: string, userId: number) => {
-  try {
-    console.log('🔄 Buscando times específicos do usuário:', userId);
-    
-    const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.get(`/api/v1/accounts/${ACCOUNT_ID}/agents/${userId}/teams`);
-    
-    console.log('✅ Times específicos do usuário:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ Erro ao buscar times específicos do usuário:', error);
-    // Retornar array vazio em caso de erro
-    return { payload: [] };
-  }
-};
-
-// Função para buscar conversas por time
-export const getConversationsByTeam = async (token: string, teamId: number, status?: string) => {
-  try {
-    console.log('🔄 Buscando conversas do time:', teamId, status ? `com status: ${status}` : '');
-    
-    const apiClient = createAuthenticatedClient(token);
-    let url = `/api/v1/accounts/${ACCOUNT_ID}/teams/${teamId}/conversations`;
-    
-    // Adicionar parâmetro de status se fornecido
-    if (status) {
-      url += `?status=${status}`;
-    }
-    
-    const response = await apiClient.get(url);
-    
-    console.log('✅ Conversas do time:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ Erro ao buscar conversas do time:', error);
-    // Retornar array vazio em caso de erro
-    return { payload: [], conversations: [] };
-  }
-};
-
-// Função para buscar contatos
-export const getContacts = async (token: string) => {
-  try {
-    console.log('🔄 Buscando contatos...');
-    
-    const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.get(`/api/v1/accounts/${ACCOUNT_ID}/contacts`);
-    
-    console.log('✅ Contatos recebidos:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ Erro ao buscar contatos:', error);
-    // Retornar array vazio em caso de erro
-    return { payload: [] };
-  }
-};
-
-// Função para buscar contatos
-export const searchContacts = async (token: string, query: string) => {
-  try {
-    console.log('🔄 Buscando contatos com query:', query);
-    
-    const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.get(`/api/v1/accounts/${ACCOUNT_ID}/contacts/search?q=${encodeURIComponent(query)}`);
-    
-    console.log('✅ Contatos encontrados:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ Erro ao buscar contatos:', error);
-    // Retornar array vazio em caso de erro
-    return { payload: [] };
-  }
-};
-
-// Função para criar contato
-export const createContact = async (token: string, contactData: {
-  name: string;
-  email?: string;
-  phone_number?: string;
-  custom_attributes?: Record<string, any>;
-}) => {
-  try {
-    console.log('🔄 Criando contato:', contactData);
-    
-    const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/contacts`, contactData);
-    
-    console.log('✅ Contato criado com sucesso:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ Erro ao criar contato:', error);
-    throw error;
-  }
-};
-
-// Função para atualizar contato
-export const updateContact = async (token: string, contactId: number, contactData: {
-  name?: string;
-  email?: string;
-  phone_number?: string;
-  custom_attributes?: Record<string, any>;
-}) => {
-  try {
-    console.log('🔄 Atualizando contato:', { id: contactId, data: contactData });
-    
-    const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.put(`/api/v1/accounts/${ACCOUNT_ID}/contacts/${contactId}`, contactData);
-    
-    console.log('✅ Contato atualizado com sucesso:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ Erro ao atualizar contato:', error);
-    throw error;
-  }
-};
-
-// Função para enviar mensagem para contato
-export const sendMessageToContact = async (token: string, contactId: number, messageData: {
-  content: string;
-  message_type?: number;
-}) => {
-  try {
-    console.log('🔄 Enviando mensagem para contato:', { contactId, messageData });
-    
-    const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.post(`/api/v1/accounts/${ACCOUNT_ID}/contacts/${contactId}/messages`, messageData);
-    
-    console.log('✅ Mensagem enviada com sucesso:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ Erro ao enviar mensagem para contato:', error);
-    throw error;
-  }
-};
-
-// Função para buscar labels de uma conversa
-export const getConversationLabels = async (token: string, conversationId: number) => {
-  try {
-    console.log('🔄 Buscando labels da conversa:', conversationId);
-    
-    const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.get(`/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/labels`);
-    
-    console.log('✅ Labels da conversa:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ Erro ao buscar labels da conversa:', error);
-    // Retornar array vazio em caso de erro
-    return { payload: [] };
-  }
-};
-
-// Função para remover labels de uma conversa
-export const removeLabelsFromConversation = async (token: string, conversationId: number, labels: string[]) => {
-  try {
-    console.log('🔄 Removendo labels da conversa:', { conversationId, labels });
-    
-    const apiClient = createAuthenticatedClient(token);
-    const response = await apiClient.delete(`/api/v1/accounts/${ACCOUNT_ID}/conversations/${conversationId}/labels`, {
-      data: { labels }
-    });
-    
-    console.log('✅ Labels removidos com sucesso:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ Erro ao remover labels da conversa:', error);
-    throw error;
   }
 };

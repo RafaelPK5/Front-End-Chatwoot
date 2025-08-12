@@ -34,7 +34,7 @@ export default function AutomationStats() {
         setLoading(true);
         setError(null);
         
-        const statsData = await getAutomationStats(user.auth_token);
+        const statsData = await getAutomationStats(user.auth_token || '');
         setStats(statsData);
       } catch (err) {
         console.error('Erro ao carregar estatísticas de automações:', err);

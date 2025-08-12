@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUserStore } from '../../store/userStore';
 import { getConversationStats, getAgents } from '../../lib/api/chatwootAPI';
 import { 
-  AlertTriangle, Clock, Users, MessageSquare, 
-  CheckCircle, XCircle, Info, Zap 
+  AlertTriangle, CheckCircle, XCircle, Info, Zap 
 } from 'lucide-react';
 
 interface Alert {
@@ -22,7 +21,7 @@ export default function DashboardAlerts() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const generateAlerts = async () => {
+  const generateAlerts = useCallback(async () => {
     if (!user?.auth_token) return;
     
     try {
@@ -103,13 +102,13 @@ export default function DashboardAlerts() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.auth_token]);
 
   useEffect(() => {
     generateAlerts();
     const interval = setInterval(generateAlerts, 60000); // Atualizar a cada minuto
     return () => clearInterval(interval);
-  }, [user?.auth_token]);
+  }, [generateAlerts]);
 
   const getAlertIcon = (type: Alert['type']) => {
     switch (type) {

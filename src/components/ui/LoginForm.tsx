@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useUserStore } from '../../store/userStore';
 
 export default function LoginForm() {
@@ -11,7 +12,6 @@ export default function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
-    console.log('Iniciando login...');
     await login(email, password);
   };
 
@@ -20,9 +20,11 @@ export default function LoginForm() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <div className="mx-auto flex items-center justify-center">
-            <img 
+            <Image 
               src="/logo-communica-reduzida_cont-1.png" 
               alt="Communica Logo" 
+              width={200}
+              height={80}
               className="w-auto"
             />
           </div>

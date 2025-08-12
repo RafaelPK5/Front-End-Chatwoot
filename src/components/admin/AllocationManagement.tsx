@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { useUserStore } from '@/store/userStore';
 
 interface Agent {
@@ -68,7 +69,7 @@ export default function AllocationManagement() {
   const [showInboxAllocationModal, setShowInboxAllocationModal] = useState(false);
 
   // Buscar dados iniciais
-  const fetchInitialData = async () => {
+  const fetchInitialData = useCallback(async () => {
     if (!user?.auth_token) {
       setError('Token de autenticação não encontrado');
       return;
@@ -81,13 +82,13 @@ export default function AllocationManagement() {
       // Buscar agentes, times e inboxes em paralelo
       const [agentsResponse, teamsResponse, inboxesResponse] = await Promise.all([
         fetch('/api/chatwoot/api/v1/accounts/1/agents', {
-          headers: { 'api_access_token': user.auth_token }
+          headers: { 'api_access_token': user.auth_token || '' }
         }),
         fetch('/api/chatwoot/api/v1/accounts/1/teams', {
-          headers: { 'api_access_token': user.auth_token }
+          headers: { 'api_access_token': user.auth_token || '' }
         }),
         fetch('/api/chatwoot/api/v1/accounts/1/inboxes', {
-          headers: { 'api_access_token': user.auth_token }
+          headers: { 'api_access_token': user.auth_token || '' }
         })
       ]);
 
@@ -101,16 +102,41 @@ export default function AllocationManagement() {
         inboxesResponse.json()
       ]);
 
-      setAgents(Array.isArray(agentsData) ? agentsData : []);
-      setTeams(Array.isArray(teamsData) ? teamsData : teamsData.payload || []);
-      setInboxes(Array.isArray(inboxesData) ? inboxesData : inboxesData.payload || []);
+      const agents = Array.isArray(agentsData) ? agentsData : [];
+      const teams = Array.isArray(teamsData) ? teamsData : teamsData.payload || [];
+      const inboxes = Array.isArray(inboxesData) ? inboxesData : inboxesData.payload || [];
+
+      // Buscar contagem de membros para cada time
+      const teamsWithMembersCount = await Promise.all(
+        teams.map(async (team: any) => {
+          try {
+            const membersResponse = await fetch(`/api/chatwoot/api/v1/accounts/1/teams/${team.id}/team_members`, {
+              headers: { 'api_access_token': user.auth_token || '' }
+            });
+            
+            if (membersResponse.ok) {
+              const membersData = await membersResponse.json();
+              const membersCount = Array.isArray(membersData) ? membersData.length : 0;
+              return { ...team, members_count: membersCount };
+            } else {
+              return { ...team, members_count: 0 };
+            }
+          } catch {
+            return { ...team, members_count: 0 };
+          }
+        })
+      );
+
+      setAgents(agents);
+      setTeams(teamsWithMembersCount);
+      setInboxes(inboxes);
     } catch (err: any) {
       console.error('❌ Erro ao buscar dados iniciais:', err);
       setError(err.message || 'Erro ao buscar dados');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.auth_token]);
 
   // Buscar membros de um time
   const fetchTeamMembers = async (teamId: number) => {
@@ -132,7 +158,7 @@ export default function AllocationManagement() {
       for (let i = 0; i < endpoints.length; i++) {
         try {
           const response = await fetch(endpoints[i], {
-            headers: { 'api_access_token': user.auth_token }
+            headers: { 'api_access_token': user.auth_token || '' }
           });
 
           if (response.ok) {
@@ -140,7 +166,7 @@ export default function AllocationManagement() {
             success = true;
             break;
           }
-        } catch (err: any) {
+        } catch {
           // Silenciar erros de endpoint
         }
       }
@@ -175,7 +201,7 @@ export default function AllocationManagement() {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'api_access_token': user.auth_token
+          'api_access_token': user.auth_token || ''
         }
       });
 
@@ -253,7 +279,7 @@ export default function AllocationManagement() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'api_access_token': user.auth_token
+              'api_access_token': user.auth_token || ''
             },
             body: JSON.stringify(payloads[i])
           });
@@ -301,7 +327,7 @@ export default function AllocationManagement() {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'api_access_token': user.auth_token
+          'api_access_token': user.auth_token || ''
         },
         body: JSON.stringify(payload)
       });
@@ -339,7 +365,7 @@ export default function AllocationManagement() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'api_access_token': user.auth_token
+          'api_access_token': user.auth_token || ''
         },
         body: JSON.stringify(payload)
       });
@@ -380,7 +406,7 @@ export default function AllocationManagement() {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'api_access_token': user.auth_token
+          'api_access_token': user.auth_token || ''
         },
         body: JSON.stringify(payload)
       });
@@ -415,24 +441,26 @@ export default function AllocationManagement() {
 
   useEffect(() => {
     fetchInitialData();
-  }, [user?.auth_token]);
+  }, [fetchInitialData]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center space-x-4 mb-4">
-          <img 
+          <Image 
             src="/logo-communica.png" 
             alt="Communica Logo" 
+            width={48}
+            height={48}
             className="h-12 w-auto"
           />
           <div>
@@ -461,7 +489,7 @@ export default function AllocationManagement() {
 
       {/* Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <svg className="h-8 w-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -475,7 +503,7 @@ export default function AllocationManagement() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <svg className="h-8 w-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -489,7 +517,7 @@ export default function AllocationManagement() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <svg className="h-8 w-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -503,11 +531,11 @@ export default function AllocationManagement() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <svg className="h-8 w-8 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
               </svg>
             </div>
             <div className="ml-4">
@@ -573,49 +601,49 @@ export default function AllocationManagement() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Nome do Time
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Descrição
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Membros
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
+                                 <thead className="bg-gray-50 dark:bg-gray-700">
+                   <tr>
+                     <th className="w-1/4 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                       Nome do Time
+                     </th>
+                     <th className="w-2/5 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                       Descrição
+                     </th>
+                     <th className="w-1/6 px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                       Membros
+                     </th>
+                     <th className="w-1/6 px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                       Ações
+                     </th>
+                   </tr>
+                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {teams.map((team) => (
-                    <tr key={team.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{team.name}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 dark:text-white max-w-xs truncate">
-                          {team.description || 'Sem descrição'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 dark:text-white">{team.members_count || 0}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleTeamSelect(team)}
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                        >
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                          Gerenciar Alocações
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                                     {teams.map((team) => (
+                     <tr key={team.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                       <td className="w-1/4 px-6 py-4">
+                         <div className="text-sm font-medium text-gray-900 dark:text-white">{team.name}</div>
+                       </td>
+                       <td className="w-2/5 px-6 py-4">
+                         <div className="text-sm text-gray-900 dark:text-white max-w-xs truncate">
+                           {team.description || 'Sem descrição'}
+                         </div>
+                       </td>
+                       <td className="w-1/6 px-6 py-4 text-center">
+                         <div className="text-sm text-gray-900 dark:text-white">{team.members_count || 0}</div>
+                       </td>
+                       <td className="w-1/6 px-6 py-4 text-center">
+                         <button
+                           onClick={() => handleTeamSelect(team)}
+                           className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                         >
+                           <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                           </svg>
+                           Gerenciar Alocações
+                         </button>
+                       </td>
+                     </tr>
+                   ))}
                 </tbody>
               </table>
             </div>
@@ -624,65 +652,59 @@ export default function AllocationManagement() {
       )}
 
       {activeTab === 'inboxes' && (
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Inboxes</h2>
-            <p className="text-sm text-gray-600 mt-1">Clique em um inbox para gerenciar suas alocações</p>
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">Inboxes</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Clique em um inbox para gerenciar suas alocações</p>
           </div>
           
           {inboxes.length === 0 ? (
             <div className="px-6 py-12 text-center">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum inbox encontrado</h3>
-              <p className="mt-1 text-sm text-gray-500">Crie inboxes primeiro para gerenciar alocações.</p>
+              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">Nenhum inbox encontrado</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Crie inboxes primeiro para gerenciar alocações.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Nome do Inbox
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tipo de Canal
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tipo de Plataforma
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {inboxes.map((inbox) => (
-                    <tr key={inbox.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{inbox.name}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{inbox.channel_type}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{inbox.platform_type || 'N/A'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleInboxSelect(inbox)}
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                        >
-                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                          Gerenciar Alocações
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+                             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                 <thead className="bg-gray-50 dark:bg-gray-700">
+                   <tr>
+                     <th className="w-2/5 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                       Nome do Inbox
+                     </th>
+                     <th className="w-2/5 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                       Tipo de Canal
+                     </th>
+                     <th className="w-1/5 px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                       Ações
+                     </th>
+                   </tr>
+                 </thead>
+                                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                   {inboxes.map((inbox) => (
+                     <tr key={inbox.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                       <td className="w-2/5 px-6 py-4">
+                         <div className="text-sm font-medium text-gray-900 dark:text-white">{inbox.name}</div>
+                       </td>
+                       <td className="w-2/5 px-6 py-4">
+                         <div className="text-sm text-gray-900 dark:text-white">{inbox.channel_type}</div>
+                       </td>
+                       <td className="w-1/5 px-6 py-4 text-center">
+                         <button
+                           onClick={() => handleInboxSelect(inbox)}
+                           className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                         >
+                           <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                           </svg>
+                           Gerenciar Alocações
+                         </button>
+                       </td>
+                     </tr>
+                   ))}
+                 </tbody>
               </table>
             </div>
           )}
@@ -692,15 +714,15 @@ export default function AllocationManagement() {
       {/* Modal de Alocação de Time */}
       {showTeamAllocationModal && selectedTeam && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-4/5 max-w-4xl shadow-lg rounded-md bg-white">
+          <div className="relative top-10 mx-auto p-5 border w-4/5 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800 dark:border-gray-700">
             <div className="mt-3">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                   Gerenciar Alocações - {selectedTeam.name}
                 </h3>
                 <button
                   onClick={() => setShowTeamAllocationModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -711,21 +733,21 @@ export default function AllocationManagement() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Membros Atuais */}
                 <div>
-                  <h4 className="text-md font-medium text-gray-900 mb-3">Membros Atuais ({teamMembers.length})</h4>
-                  <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                  <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3">Membros Atuais ({teamMembers.length})</h4>
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-64 overflow-y-auto">
                     {teamMembers.length === 0 ? (
-                      <p className="text-gray-500 text-sm">Nenhum membro alocado</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">Nenhum membro alocado</p>
                     ) : (
                       <div className="space-y-2">
                         {teamMembers.map((member) => (
-                          <div key={member.id} className="flex justify-between items-center p-2 bg-white rounded border">
+                          <div key={member.id} className="flex justify-between items-center p-2 bg-white dark:bg-gray-600 rounded border dark:border-gray-500">
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{member.name}</div>
-                              <div className="text-xs text-gray-500">{member.email}</div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">{member.name}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{member.email}</div>
                             </div>
                             <button
                               onClick={() => removeAgentFromTeam(member.id)}
-                              className="text-red-600 hover:text-red-800 text-sm"
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm"
                             >
                               Remover
                             </button>
@@ -738,21 +760,21 @@ export default function AllocationManagement() {
 
                 {/* Agentes Disponíveis */}
                 <div>
-                  <h4 className="text-md font-medium text-gray-900 mb-3">Agentes Disponíveis ({availableAgentsForTeam.length})</h4>
-                  <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                  <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3">Agentes Disponíveis ({availableAgentsForTeam.length})</h4>
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-64 overflow-y-auto">
                     {availableAgentsForTeam.length === 0 ? (
-                      <p className="text-gray-500 text-sm">Todos os agentes já estão alocados</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">Todos os agentes já estão alocados</p>
                     ) : (
                       <div className="space-y-2">
                         {availableAgentsForTeam.map((agent) => (
-                          <div key={agent.id} className="flex justify-between items-center p-2 bg-white rounded border">
+                          <div key={agent.id} className="flex justify-between items-center p-2 bg-white dark:bg-gray-600 rounded border dark:border-gray-500">
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{agent.name}</div>
-                              <div className="text-xs text-gray-500">{agent.email}</div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">{agent.name}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{agent.email}</div>
                             </div>
                             <button
                               onClick={() => addAgentToTeam(agent.id)}
-                              className="text-blue-600 hover:text-blue-800 text-sm"
+                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
                             >
                               Adicionar
                             </button>
@@ -771,15 +793,15 @@ export default function AllocationManagement() {
       {/* Modal de Alocação de Inbox */}
       {showInboxAllocationModal && selectedInbox && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-4/5 max-w-4xl shadow-lg rounded-md bg-white">
+          <div className="relative top-10 mx-auto p-5 border w-4/5 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800 dark:border-gray-700">
             <div className="mt-3">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                   Gerenciar Alocações - {selectedInbox.name}
                 </h3>
                 <button
                   onClick={() => setShowInboxAllocationModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -790,21 +812,21 @@ export default function AllocationManagement() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Agentes Atuais */}
                 <div>
-                  <h4 className="text-md font-medium text-gray-900 mb-3">Agentes Atuais ({inboxAgents.length})</h4>
-                  <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                  <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3">Agentes Atuais ({inboxAgents.length})</h4>
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-64 overflow-y-auto">
                     {inboxAgents.length === 0 ? (
-                      <p className="text-gray-500 text-sm">Nenhum agente alocado</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">Nenhum agente alocado</p>
                     ) : (
                       <div className="space-y-2">
                         {inboxAgents.map((agent) => (
-                          <div key={agent.id} className="flex justify-between items-center p-2 bg-white rounded border">
+                          <div key={agent.id} className="flex justify-between items-center p-2 bg-white dark:bg-gray-600 rounded border dark:border-gray-500">
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{agent.name}</div>
-                              <div className="text-xs text-gray-500">{agent.email}</div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">{agent.name}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{agent.email}</div>
                             </div>
                             <button
                               onClick={() => removeAgentFromInbox(agent.id)}
-                              className="text-red-600 hover:text-red-800 text-sm"
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 text-sm"
                             >
                               Remover
                             </button>
@@ -817,21 +839,21 @@ export default function AllocationManagement() {
 
                 {/* Agentes Disponíveis */}
                 <div>
-                  <h4 className="text-md font-medium text-gray-900 mb-3">Agentes Disponíveis ({availableAgentsForInbox.length})</h4>
-                  <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                  <h4 className="text-md font-medium text-gray-900 dark:text-white mb-3">Agentes Disponíveis ({availableAgentsForInbox.length})</h4>
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 max-h-64 overflow-y-auto">
                     {availableAgentsForInbox.length === 0 ? (
-                      <p className="text-gray-500 text-sm">Todos os agentes já estão alocados</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">Todos os agentes já estão alocados</p>
                     ) : (
                       <div className="space-y-2">
                         {availableAgentsForInbox.map((agent) => (
-                          <div key={agent.id} className="flex justify-between items-center p-2 bg-white rounded border">
+                          <div key={agent.id} className="flex justify-between items-center p-2 bg-white dark:bg-gray-600 rounded border dark:border-gray-500">
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{agent.name}</div>
-                              <div className="text-xs text-gray-500">{agent.email}</div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">{agent.name}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{agent.email}</div>
                             </div>
                             <button
                               onClick={() => addAgentToInbox(agent.id)}
-                              className="text-blue-600 hover:text-blue-800 text-sm"
+                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
                             >
                               Adicionar
                             </button>

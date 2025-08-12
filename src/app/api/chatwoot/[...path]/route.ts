@@ -10,15 +10,25 @@ export async function GET(
   const pathString = path.join('/');
   const url = `${CHATWOOT_API_URL}/${pathString}`;
   
+  // Construir URL completa com query parameters
+  const urlWithParams = new URL(url);
+  request.nextUrl.searchParams.forEach((value, key) => {
+    urlWithParams.searchParams.append(key, value);
+  });
+  
+  console.log('🔄 [API Route GET] Recebida requisição para:', pathString);
+  console.log('🔄 [API Route GET] URL base:', url);
+  console.log('🔄 [API Route GET] URL completa com params:', urlWithParams.toString());
+  console.log('🔄 [API Route GET] Query params:', request.nextUrl.searchParams.toString());
+  
   // Extrair o token de autenticação dos headers
   const authToken = request.headers.get('api_access_token') || 
                    request.headers.get('authorization')?.replace('Bearer ', '');
   
+  console.log('🔄 [API Route GET] Token presente:', !!authToken);
+  console.log('🔄 [API Route GET] Token (primeiros 10 chars):', authToken ? `${authToken.substring(0, 10)}...` : 'null');
+  
   try {
-    console.log('🌐 [API Route] GET request iniciada');
-    console.log('📍 URL de destino:', url);
-    console.log('🔑 Token de autenticação:', authToken ? `${authToken.substring(0, 10)}...` : 'Não fornecido');
-    
     // Preparar headers para o Chatwoot
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -29,41 +39,65 @@ export async function GET(
       headers['api_access_token'] = authToken;
     }
     
-    const response = await fetch(url, {
+    console.log('🔄 [API Route GET] Fazendo requisição para Chatwoot...');
+    console.log('🔄 [API Route GET] Headers:', headers);
+    
+    const response = await fetch(urlWithParams.toString(), {
       method: 'GET',
       headers,
     });
     
-    console.log('📡 [API Route] Resposta do Chatwoot:', {
+    console.log('🔄 [API Route GET] Resposta do Chatwoot:', {
       status: response.status,
       statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
+      ok: response.ok
     });
     
     if (!response.ok) {
-      console.error('❌ [API Route] API response not ok:', response.status, response.statusText);
+      console.error('❌ [API Route GET] Error:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('❌ [API Route GET] Error details:', errorText);
       return NextResponse.json(
-        { error: `API error: ${response.status} ${response.statusText}` },
-        { status: response.status }
+        { error: `API error: ${response.status} ${response.statusText}`, details: errorText },
+        { 
+          status: response.status,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+          }
+        }
       );
     }
     
     const data = await response.json();
-    console.log('✅ [API Route] Dados retornados com sucesso:', data);
-    console.log('🔍 [API Route] Estrutura dos dados:', {
-      type: typeof data,
-      isArray: Array.isArray(data),
-      keys: data ? Object.keys(data) : 'null/undefined',
-      hasPayload: data && 'payload' in data,
-      payloadType: data && data.payload ? typeof data.payload : 'undefined',
-      payloadIsArray: data && data.payload ? Array.isArray(data.payload) : false
+    console.log('✅ [API Route GET] Dados retornados com sucesso');
+    console.log('✅ [API Route GET] Estrutura dos dados:', {
+      hasPayload: !!data.payload,
+      payloadLength: data.payload?.length || 0,
+      hasData: !!data.data,
+      dataLength: data.data?.length || 0,
+      keys: Object.keys(data)
     });
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+      }
+    });
   } catch (error) {
-    console.error('❌ [API Route] Error in API route:', error);
+    console.error('❌ [API Route GET] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+        }
+      }
     );
   }
 }
@@ -77,16 +111,17 @@ export async function POST(
   const url = `${CHATWOOT_API_URL}/${pathString}`;
   const body = await request.json();
   
+  console.log('🔄 [API Route POST] Recebida requisição para:', pathString);
+  console.log('🔄 [API Route POST] URL completa:', url);
+  console.log('🔄 [API Route POST] Body:', body);
+  
   // Extrair o token de autenticação dos headers
   const authToken = request.headers.get('api_access_token') || 
                    request.headers.get('authorization')?.replace('Bearer ', '');
   
+  console.log('🔄 [API Route POST] Token presente:', !!authToken);
+  
   try {
-    console.log('🌐 [API Route] POST request iniciada');
-    console.log('📍 URL de destino:', url);
-    console.log('📦 Body da requisição:', body);
-    console.log('🔑 Token de autenticação:', authToken ? `${authToken.substring(0, 10)}...` : 'Não fornecido');
-    
     // Preparar headers para o Chatwoot
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -97,7 +132,8 @@ export async function POST(
       headers['api_access_token'] = authToken;
     }
     
-    console.log('📤 [API Route] Headers sendo enviados:', headers);
+    console.log('🔄 [API Route POST] Fazendo requisição para Chatwoot...');
+    console.log('🔄 [API Route POST] Headers:', headers);
     
     const response = await fetch(url, {
       method: 'POST',
@@ -105,38 +141,55 @@ export async function POST(
       body: JSON.stringify(body),
     });
     
-    console.log('📡 [API Route] Resposta do Chatwoot:', {
+    console.log('🔄 [API Route POST] Resposta do Chatwoot:', {
       status: response.status,
       statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
+      ok: response.ok
     });
     
     if (!response.ok) {
-      console.error('❌ [API Route] API response not ok:', response.status, response.statusText);
+      console.error('❌ [API Route POST] Error:', response.status, response.statusText);
       const errorText = await response.text();
-      console.error('❌ [API Route] Error response body:', errorText);
-      console.error('❌ [API Route] Error response headers:', Object.fromEntries(response.headers.entries()));
-      console.error('❌ [API Route] Full error details:', { 
-        status: response.status, 
-        statusText: response.statusText, 
-        body: errorText,
-        url: url,
-        requestBody: body
-      });
+      console.error('❌ [API Route POST] Error details:', errorText);
       return NextResponse.json(
         { error: `API error: ${response.status} ${response.statusText}`, details: errorText },
-        { status: response.status }
+        { 
+          status: response.status,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+          }
+        }
       );
     }
     
     const data = await response.json();
-    console.log('✅ [API Route] Dados retornados com sucesso:', data);
-    return NextResponse.json(data);
+    console.log('✅ [API Route POST] Dados retornados com sucesso');
+    console.log('✅ [API Route POST] Estrutura dos dados:', {
+      hasPayload: !!data.payload,
+      hasData: !!data.data,
+      keys: Object.keys(data)
+    });
+    return NextResponse.json(data, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+      }
+    });
   } catch (error) {
-    console.error('❌ [API Route] Error in API route:', error);
+    console.error('❌ [API Route POST] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+        }
+      }
     );
   }
 }
@@ -155,11 +208,6 @@ export async function PUT(
                    request.headers.get('authorization')?.replace('Bearer ', '');
   
   try {
-    console.log('🌐 [API Route] PUT request iniciada');
-    console.log('📍 URL de destino:', url);
-    console.log('📦 Body da requisição:', body);
-    console.log('🔑 Token de autenticação:', authToken ? `${authToken.substring(0, 10)}...` : 'Não fornecido');
-    
     // Preparar headers para o Chatwoot
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -176,28 +224,41 @@ export async function PUT(
       body: JSON.stringify(body),
     });
     
-    console.log('📡 [API Route] Resposta do Chatwoot:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
-    });
-    
     if (!response.ok) {
-      console.error('❌ [API Route] API response not ok:', response.status, response.statusText);
+      console.error('❌ [API Route] Error:', response.status, response.statusText);
       return NextResponse.json(
         { error: `API error: ${response.status} ${response.statusText}` },
-        { status: response.status }
+        { 
+          status: response.status,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+          }
+        }
       );
     }
     
     const data = await response.json();
-    console.log('✅ [API Route] Dados retornados com sucesso:', data);
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+      }
+    });
   } catch (error) {
-    console.error('❌ [API Route] Error in API route:', error);
+    console.error('❌ [API Route] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+        }
+      }
     );
   }
 }
@@ -216,11 +277,6 @@ export async function PATCH(
                    request.headers.get('authorization')?.replace('Bearer ', '');
   
   try {
-    console.log('🌐 [API Route] PATCH request iniciada');
-    console.log('📍 URL de destino:', url);
-    console.log('📦 Body da requisição:', body);
-    console.log('🔑 Token de autenticação:', authToken ? `${authToken.substring(0, 10)}...` : 'Não fornecido');
-    
     // Preparar headers para o Chatwoot
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -237,28 +293,41 @@ export async function PATCH(
       body: JSON.stringify(body),
     });
     
-    console.log('📡 [API Route] Resposta do Chatwoot:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
-    });
-    
     if (!response.ok) {
-      console.error('❌ [API Route] API response not ok:', response.status, response.statusText);
+      console.error('❌ [API Route] Error:', response.status, response.statusText);
       return NextResponse.json(
         { error: `API error: ${response.status} ${response.statusText}` },
-        { status: response.status }
+        { 
+          status: response.status,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+          }
+        }
       );
     }
     
     const data = await response.json();
-    console.log('✅ [API Route] Dados retornados com sucesso:', data);
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+      }
+    });
   } catch (error) {
-    console.error('❌ [API Route] Error in API route:', error);
+    console.error('❌ [API Route] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+        }
+      }
     );
   }
 }
@@ -271,15 +340,17 @@ export async function DELETE(
   const pathString = path.join('/');
   const url = `${CHATWOOT_API_URL}/${pathString}`;
   
+  console.log('🔄 [API Route DELETE] Recebida requisição para:', pathString);
+  console.log('🔄 [API Route DELETE] URL completa:', url);
+  
   // Extrair o token de autenticação dos headers
   const authToken = request.headers.get('api_access_token') || 
                    request.headers.get('authorization')?.replace('Bearer ', '');
   
+  console.log('🔄 [API Route DELETE] Token presente:', !!authToken);
+  console.log('🔄 [API Route DELETE] Token (primeiros 10 chars):', authToken ? `${authToken.substring(0, 10)}...` : 'null');
+  
   try {
-    console.log('🌐 [API Route] DELETE request iniciada');
-    console.log('📍 URL de destino:', url);
-    console.log('🔑 Token de autenticação:', authToken ? `${authToken.substring(0, 10)}...` : 'Não fornecido');
-    
     // Preparar headers para o Chatwoot
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -290,33 +361,58 @@ export async function DELETE(
       headers['api_access_token'] = authToken;
     }
     
+    console.log('🔄 [API Route DELETE] Headers enviados:', headers);
+    console.log('🔄 [API Route DELETE] Fazendo requisição para Chatwoot...');
+    
     const response = await fetch(url, {
       method: 'DELETE',
       headers,
     });
     
-    console.log('📡 [API Route] Resposta do Chatwoot:', {
+    console.log('🔄 [API Route DELETE] Resposta do Chatwoot:', {
       status: response.status,
       statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
+      ok: response.ok
     });
     
     if (!response.ok) {
-      console.error('❌ [API Route] API response not ok:', response.status, response.statusText);
+      console.error('❌ [API Route DELETE] Error:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('❌ [API Route DELETE] Error details:', errorText);
       return NextResponse.json(
-        { error: `API error: ${response.status} ${response.statusText}` },
-        { status: response.status }
+        { error: `API error: ${response.status} ${response.statusText}`, details: errorText },
+        { 
+          status: response.status,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+          }
+        }
       );
     }
     
     const data = await response.json();
-    console.log('✅ [API Route] Dados retornados com sucesso:', data);
-    return NextResponse.json(data);
+    console.log('✅ [API Route DELETE] Dados retornados com sucesso');
+    return NextResponse.json(data, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+      }
+    });
   } catch (error) {
-    console.error('❌ [API Route] Error in API route:', error);
+    console.error('❌ [API Route DELETE] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, api_access_token',
+        }
+      }
     );
   }
 }

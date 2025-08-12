@@ -23,8 +23,6 @@ export default function UserPermissionsInfo({ onPermissionsLoaded }: UserPermiss
       try {
         setLoading(true);
         setError(null);
-        console.log('🔄 Buscando permissões do usuário...');
-
         // Buscar inboxes e times do usuário
         const [inboxesResponse, teamsResponse] = await Promise.all([
           getUserInboxes(user.auth_token, user.id),
@@ -42,12 +40,6 @@ export default function UserPermissionsInfo({ onPermissionsLoaded }: UserPermiss
           setFallbackMode(true);
         }
 
-        console.log('✅ Permissões carregadas:', {
-          inboxes: inboxes.length,
-          teams: teams.length,
-          fallbackMode: inboxes.length === 0 && teams.length === 0
-        });
-
         // Notificar componente pai sobre as permissões carregadas
         if (onPermissionsLoaded) {
           onPermissionsLoaded({
@@ -58,7 +50,7 @@ export default function UserPermissionsInfo({ onPermissionsLoaded }: UserPermiss
           });
         }
       } catch (err) {
-        console.error('❌ Erro ao carregar permissões:', err);
+        console.error('Erro ao carregar permissões:', err);
         setError('Erro ao carregar permissões');
         setFallbackMode(true);
         
@@ -78,7 +70,7 @@ export default function UserPermissionsInfo({ onPermissionsLoaded }: UserPermiss
     };
 
     fetchUserPermissions();
-  }, [user?.auth_token, user?.id, onPermissionsLoaded]);
+  }, [user?.auth_token, user?.id, user?.role, onPermissionsLoaded]);
 
   if (loading) {
     return (

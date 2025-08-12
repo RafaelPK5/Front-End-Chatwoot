@@ -1,59 +1,66 @@
 'use client';
 
-import { useUserStore } from '../store/userStore';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useUserStore } from '../store/userStore';
 import LoginForm from './ui/LoginForm';
+import AdminLayout from './layout/AdminLayout';
 import AgentConversations from './agent/AgentConversations';
 
 export default function RoleBasedRouter() {
-  const { user, isLoggedIn } = useUserStore();
+  const { user, isLoggedIn, isLoading } = useUserStore();
   const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    console.log('🔄 RoleBasedRouter - Estado atual:', { isLoggedIn, userRole: user?.role });
-    
-    // Se está logado e é administrador, redireciona para /admin
-    if (isLoggedIn && user?.role === 'administrator') {
-      console.log('📤 Redirecionando administrador para /admin');
-      router.push('/admin');
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && isLoggedIn && user?.role === 'administrator' && typeof window !== 'undefined') {
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/admin') {
+        router.push('/admin');
+      }
     }
-  }, [isLoggedIn, user?.role, router]);
+  }, [isLoading, isLoggedIn, user?.role, router]);
 
-  // Se não está logado, mostra a tela de login
-  if (!isLoggedIn) {
-    console.log('🔐 Usuário não logado, mostrando tela de login');
-    return <LoginForm />;
-  }
-
-  // Se está logado, roteia baseado no role
-  if (user?.role === 'administrator') {
-    // Mostra loading enquanto redireciona
-    console.log('⏳ Mostrando loading para administrador');
+  if (!isClient || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="flex items-center justify-center h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>
       </div>
     );
   }
 
-  if (user?.role === 'agent') {
-    console.log('👤 Mostrando dashboard do agente');
+  // Se não está logado, mostrar tela de login
+  if (!isLoggedIn || !user) {
+    return <LoginForm />;
+  }
+
+  // Se está logado mas não tem role válido, mostrar erro
+  if (!user.role || (user.role !== 'administrator' && user.role !== 'agent')) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            Role não reconhecido
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Entre em contato com o administrador do sistema.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Renderizar baseado no role
+  if (user.role === 'administrator') {
+    return <AdminLayout>{null}</AdminLayout>;
+  } else if (user.role === 'agent') {
     return <AgentConversations />;
   }
 
-  // Fallback para roles desconhecidos
-  console.log('❓ Role desconhecido:', user?.role);
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-          Role não reconhecido
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Seu role ({user?.role}) não é suportado pelo sistema.
-        </p>
-      </div>
-    </div>
-  );
+  // Fallback - não deveria chegar aqui
+  return <LoginForm />;
 } 
